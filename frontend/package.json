@@ -23,6 +23,7 @@
     "@stripe/stripe-js": "^1.41.0",
     "chart.js": "^4.2.0",
     "chartjs-adapter-date-fns": "^3.0.0",
+    "chartjs-chart-geo": "^4.1.2",
     "date-fns": "^2.29.3",
     "i18n-iso-countries": "^7.5.0",
     "next": "^13.1.1",
@@ -37,11 +38,11 @@
     "react-dom": "^18.2.0",
     "react-icons": "^4.6.0",
     "react-responsive-carousel": "^3.2.23",
-    "react-svg-worldmap": "^2.0.0-alpha.0",
     "react-toastify": "^9.1.1",
     "sass": "^1.57.1",
     "sharp": "^0.31.3",
     "spdx-license-list": "^6.6.0",
+    "world-atlas": "^2.0.2",
     "yet-another-react-lightbox": "^2.3.0"
   },
   "devDependencies": {

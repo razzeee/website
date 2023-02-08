@@ -1,5 +1,4 @@
 import { NextSeo } from "next-seo"
-import WorldMap, { CountryContext } from "react-svg-worldmap"
 import { GetStaticProps } from "next"
 import { serverSideTranslations } from "next-i18next/serverSideTranslations"
 import { fetchStats } from "../src/fetchers"
@@ -16,6 +15,7 @@ import { i18n, useTranslation } from "next-i18next"
 import { useTheme } from "next-themes"
 import { getIntlLocale } from "../src/localize"
 import { Category, categoryToName } from "src/types/Category"
+import WorldMap from "src/components/Worldmap"
 const countries = require("i18n-iso-countries")
 countries.registerLocale(require("i18n-iso-countries/langs/ar.json"))
 countries.registerLocale(require("i18n-iso-countries/langs/bg.json"))
@@ -109,11 +109,10 @@ const Statistics = ({ stats }: { stats: Statistics }): JSX.Element => {
       count: countryValue,
     })
 
-    const translation = `${
-      translatedCountryName ??
+    const translation = `${translatedCountryName ??
       countries.getName(countryCode, "en") ??
       t("unknown")
-    }: ${downloadTranslation}`
+      }: ${downloadTranslation}`
 
     return translation
   }
@@ -169,14 +168,7 @@ const Statistics = ({ stats }: { stats: Statistics }): JSX.Element => {
         </div>
         <h3>{t("downloads-per-country")}</h3>
         <div className={`flex justify-center ${styles.map}`}>
-          <WorldMap
-            color="var(--color-primary)"
-            backgroundColor="var(--bg-color-secondary)"
-            borderColor="var(--text-primary)"
-            size="responsive"
-            data={country_data}
-            tooltipTextFunction={getLocalizedText}
-          />
+          <WorldMap />
         </div>
         <h3>{t("downloads-over-time")}</h3>
         <div className="h-[500px] rounded-xl bg-bgColorSecondary p-4 shadow-md">
