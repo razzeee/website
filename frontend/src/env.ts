@@ -30,8 +30,19 @@ export const CATEGORY_URL = (
 }
 export const DEVELOPER_URL = (developer: string): string =>
   `${BASE_URI}/developer/${encodeURIComponent(developer)}`
-export const PROJECTGROUP_URL = (projectgroup: string): string =>
-  `${BASE_URI}/projectgroup/${encodeURIComponent(projectgroup)}`
+export const PROJECTGROUP_URL = (
+  projectgroup: string,
+  page?: number,
+  per_page?: number,
+): string => {
+  if (page && per_page) {
+    return `${BASE_URI}/projectgroup/${encodeURIComponent(
+      projectgroup,
+    )}?page=${page}&per_page=${per_page}`
+  } else {
+    return `${BASE_URI}/projectgroup/${encodeURIComponent(projectgroup)}`
+  }
+}
 export const FEED_RECENTLY_UPDATED_URL: string = `${BASE_URI}/feed/recently-updated`
 export const FEED_NEW_URL: string = `${BASE_URI}/feed/new`
 

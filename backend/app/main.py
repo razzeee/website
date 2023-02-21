@@ -113,24 +113,25 @@ def get_category(
 
 @app.get("/developer")
 def get_developers():
-    return db.get_developers()
+    return search.get_available_developers()
 
 
 @app.get("/developer/{developer}")
 def get_developer(
     developer: str,
-    response: Response,
+    page: int = None,
+    per_page: int = None,
+    response: Response = Response,
 ):
-    ids = apps.get_developer(developer)
-
-    if not ids:
-        response.status_code = 404
+    if (page is None and per_page is not None) or (
+        page is not None and per_page is None
+    ):
+        response.status_code = 400
         return response
 
-    sorted_ids = utils.sort_ids_by_installs(ids)
+    result = search.get_by_selected_developers([developer], page, per_page)
 
-    result = [utils.get_listing_app(f"apps:{appid}") for appid in sorted_ids]
-    return [app for app in result if app]
+    return result
 
 
 @app.get("/eol/rebase")
@@ -148,24 +149,25 @@ def get_eol_rebase_appid(
 
 @app.get("/projectgroup")
 def get_project_groups():
-    return db.get_project_groups()
+    return search.get_available_project_groups()
 
 
 @app.get("/projectgroup/{project_group}")
 def get_project_group(
     project_group: str,
-    response: Response,
+    page: int = None,
+    per_page: int = None,
+    response: Response = Response,
 ):
-    ids = apps.get_project_group(project_group)
-
-    if not ids:
-        response.status_code = 404
+    if (page is None and per_page is not None) or (
+        page is not None and per_page is None
+    ):
+        response.status_code = 400
         return response
 
-    sorted_ids = utils.sort_ids_by_installs(ids)
+    result = search.get_by_selected_project_groups([project_group], page, per_page)
 
-    result = [utils.get_listing_app(f"apps:{appid}") for appid in sorted_ids]
-    return [app for app in result if app]
+    return result
 
 
 @app.get("/appstream")

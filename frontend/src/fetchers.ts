@@ -151,8 +151,7 @@ export default async function fetchCollection(
   const limitedList = collectionList.slice(0, limit)
 
   console.log(
-    `\nCollection ${collection} fetched. Asked for: ${count}. Returned items: ${
-      limitedList.filter((item) => Boolean(item)).length
+    `\nCollection ${collection} fetched. Asked for: ${count}. Returned items: ${limitedList.filter((item) => Boolean(item)).length
     }.`,
   )
 
@@ -202,23 +201,27 @@ export async function fetchDeveloperApps(developer: string | undefined) {
   return appList.filter((item) => Boolean(item))
 }
 
-export async function fetchProjectgroupApps(projectgroup: string | undefined) {
+export async function fetchProjectgroupApps(
+  projectgroup: string | undefined,
+  page?: number,
+  per_page?: number,
+): Promise<MeilisearchResponse<AppsIndex>> {
   if (!projectgroup) {
     console.log("No project-group specified")
     return null
   }
   console.log(`\nFetching apps for project-group ${projectgroup}`)
-  const appListRes = await fetch(PROJECTGROUP_URL(projectgroup))
-  if (!appListRes || appListRes.status === 404) {
+  const appListRes = await fetch(PROJECTGROUP_URL(projectgroup, page, per_page))
+  const response: MeilisearchResponse<AppsIndex> = await appListRes.json()
+
+  if (!appListRes || response.totalHits === 0) {
     console.log("No apps for project-group ", projectgroup)
     return null
   }
 
-  const appList = await appListRes.json()
-
   console.log(`Project-group apps for ${projectgroup} fetched.`)
 
-  return appList.filter((item) => Boolean(item))
+  return response
 }
 
 export async function fetchSearchQuery(query: string) {

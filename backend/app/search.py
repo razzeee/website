@@ -13,7 +13,9 @@ client.index("apps").update_sortable_attributes(["installs_last_month"])
 client.index("apps").update_searchable_attributes(
     ["name", "summary", "keywords", "description", "id"]
 )
-client.index("apps").update_filterable_attributes(["categories"])
+client.index("apps").update_filterable_attributes(
+    ["categories", "developer_name", "project_group"]
+)
 
 
 def add_apps(app_search_items):
@@ -40,6 +42,60 @@ def get_by_selected_categories(
         "",
         {
             "filter": [category_list],
+            "sort": ["installs_last_month:desc"],
+            "hitsPerPage": hits_per_page or 250,
+            "page": page or 1,
+        },
+    )
+
+
+def get_available_developers():
+    return client.index("apps").search(
+        "",
+        {
+            "facets": ["developer_name"],
+        },
+    )
+
+
+def get_by_selected_developers(
+    selected_developers: List[str], page: int, hits_per_page: int
+):
+    developer_list = [
+        f"developer_name = {developer}" for developer in selected_developers
+    ]
+
+    return client.index("apps").search(
+        "",
+        {
+            "filter": [developer_list],
+            "sort": ["installs_last_month:desc"],
+            "hitsPerPage": hits_per_page or 250,
+            "page": page or 1,
+        },
+    )
+
+
+def get_available_project_groups():
+    return client.index("apps").search(
+        "",
+        {
+            "facets": ["project_group"],
+        },
+    )
+
+
+def get_by_selected_project_groups(
+    selected_project_groups: List[str], page: int, hits_per_page: int
+):
+    project_group_list = [
+        f"project_group = {project_group}" for project_group in selected_project_groups
+    ]
+
+    return client.index("apps").search(
+        "",
+        {
+            "filter": [project_group_list],
             "sort": ["installs_last_month:desc"],
             "hitsPerPage": hits_per_page or 250,
             "page": page or 1,
