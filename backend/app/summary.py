@@ -33,11 +33,7 @@ def validate_ref(ref: str):
 
 
 def get_parent_id(appid: str):
-    if reverse_lookup := db.get_json_key("summary:reverse_lookup"):
-        if parent := reverse_lookup.get(appid):
-            return parent
-
-    return None
+    db.get_json_key("summary:reverse_lookup").get(appid, None)
 
 
 def parse_metadata(ini: str):
