@@ -9,7 +9,13 @@ import {
 } from "react"
 import React from "react"
 import { Carousel } from "react-responsive-carousel"
-import { Appstream, mapScreenshot, pickScreenshot } from "../../types/Appstream"
+import {
+  AddonAppstream,
+  Appstream,
+  DesktopAppstream,
+  mapScreenshot,
+  pickScreenshot,
+} from "../../types/Appstream"
 import { useTranslation } from "next-i18next"
 import Lightbox from "yet-another-react-lightbox"
 import "yet-another-react-lightbox/styles.css"
@@ -47,14 +53,16 @@ import {
 } from "src/meilisearch"
 import Tags from "./Tags"
 import "yet-another-react-lightbox/plugins/captions.css"
+import Addons from "./Addons"
 
 interface Props {
-  app?: Appstream
+  app?: DesktopAppstream
   summary?: Summary
   stats: AppStats
   developerApps: MeilisearchResponse<AppsIndex>
   projectgroupApps: MeilisearchResponse<AppsIndex>
   verificationStatus: VerificationStatus
+  addons: AddonAppstream[]
 }
 
 function categoryToSeoCategories(categories: string[]) {
@@ -91,7 +99,7 @@ function categoryToSeoCategory(category) {
   }
 }
 
-const CarouselStrip = ({ app }: { app: Appstream }) => {
+const CarouselStrip = ({ app }: { app: DesktopAppstream }) => {
   const { t } = useTranslation()
   const [showLightbox, setShowLightbox] = useState(false)
   const [currentScreenshot, setCurrentScreenshot] = useState(0)
@@ -212,6 +220,7 @@ const Details: FunctionComponent<Props> = ({
   developerApps,
   projectgroupApps,
   verificationStatus,
+  addons,
 }) => {
   const { t } = useTranslation()
 
@@ -305,6 +314,12 @@ const Details: FunctionComponent<Props> = ({
 
           {stableReleases && stableReleases.length > 0 && (
             <Releases latestRelease={stableReleases[0]}></Releases>
+          )}
+
+          {addons.length > 0 && (
+            <div>
+              <Addons addons={addons}></Addons>
+            </div>
           )}
 
           <AdditionalInfo

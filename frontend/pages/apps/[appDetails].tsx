@@ -10,10 +10,12 @@ import {
   fetchProjectgroupApps,
   fetchVerificationStatus,
   fetchEolRebase,
+  fetchAddons,
 } from "../../src/fetchers"
 import { NextSeo } from "next-seo"
 import {
-  Appstream,
+  AddonAppstream,
+  DesktopAppstream,
   pickScreenshot,
   Screenshot,
 } from "../../src/types/Appstream"
@@ -25,6 +27,7 @@ import {
   MeilisearchResponse,
   removeAppIdFromSearchResponse,
 } from "src/meilisearch"
+import { Stats } from "src/types/Stats"
 
 export default function Details({
   app,
@@ -33,13 +36,15 @@ export default function Details({
   developerApps,
   projectgroupApps,
   verificationStatus,
+  addons,
 }: {
-  app: Appstream
+  app: DesktopAppstream
   summary?: Summary
   stats: AppStats
   developerApps: MeilisearchResponse<AppsIndex>
   projectgroupApps: MeilisearchResponse<AppsIndex>
   verificationStatus: VerificationStatus
+  addons: AddonAppstream[]
 }) {
   const screenshots = app.screenshots
     ? app.screenshots
@@ -75,6 +80,7 @@ export default function Details({
         developerApps={developerApps}
         projectgroupApps={projectgroupApps}
         verificationStatus={verificationStatus}
+        addons={addons}
       />
     </>
   )
@@ -117,9 +123,9 @@ export const getStaticProps: GetStaticProps = async ({
     }
   }
 
-  const app = await fetchAppstream(appId as string)
+  const app = (await fetchAppstream(appId as string)) as DesktopAppstream
 
-  if (!app) {
+  if (!app && app.type !== "desktop-application") {
     return {
       notFound: true,
     }
@@ -130,6 +136,18 @@ export const getStaticProps: GetStaticProps = async ({
   const developerApps = await fetchDeveloperApps(app?.developer_name)
   const projectgroupApps = await fetchProjectgroupApps(app?.project_group)
   const verificationStatus = await fetchVerificationStatus(appId as string)
+  const addons = await fetchAddons(appId as string)
+
+  const addonStats = new Map<string, any>()
+
+  for (const addon of addons) {
+    const stats = await fetchAppStats(addon.id)
+    addonStats[addon.id] = stats
+  }
+
+  addons.sort((a, b) => {
+    return addonStats[b.id].installs_total - addonStats[a.id].installs_total
+  })
 
   return {
     props: {
@@ -140,6 +158,7 @@ export const getStaticProps: GetStaticProps = async ({
       developerApps: removeAppIdFromSearchResponse(developerApps, app.id),
       projectgroupApps: removeAppIdFromSearchResponse(projectgroupApps, app.id),
       verificationStatus,
+      addons,
     },
     revalidate: 900,
   }

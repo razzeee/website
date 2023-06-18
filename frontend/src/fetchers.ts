@@ -1,4 +1,4 @@
-import { Appstream, AppstreamListItem } from "./types/Appstream"
+import { AddonAppstream, Appstream, AppstreamListItem } from "./types/Appstream"
 import { Collection, Collections } from "./types/Collection"
 import { Category } from "./types/Category"
 import { LoginProvider } from "./types/Login"
@@ -28,6 +28,7 @@ import {
   SUBCATEGORY_URL,
   APPSTREAM_URL,
   RUNTIMES,
+  ADDONS_URL,
 } from "./env"
 import { Summary } from "./types/Summary"
 import { AppStats } from "./types/AppStats"
@@ -408,4 +409,15 @@ export async function fetchRuntimes(): Promise<{ [key: string]: number }> {
     console.log(`Could not fetch runtimes`)
   }
   return runtimes
+}
+
+export async function fetchAddons(appid: string) {
+  const appListRes = await fetch(ADDONS_URL(appid))
+  const appList = await appListRes.json()
+
+  const items: AddonAppstream[] = await Promise.all(appList.map(fetchAppstream))
+
+  console.log("\nAddons for ", appid, " fetched")
+
+  return items.filter((item) => Boolean(item))
 }

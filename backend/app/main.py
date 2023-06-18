@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 import sentry_sdk
 from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -354,3 +356,19 @@ def get_exceptions_for_app(appid: str, response: Response):
 
     response.status_code = 404
     return None
+
+@app.get("/addon/{appid}")
+def get_addons(appid: str):
+    ids = apps.get_addons(appid)
+
+    addon_appstreams = defaultdict()
+    for addonid in ids:
+        if addon := db.get_json_key(f"apps:{addonid}"):
+            addon_appstreams[addonid] = addon
+
+    sorted_ids = sorted(
+        ids,
+        key=lambda appid: addon_appstreams.get(appid, {}).get("name", "Unknown"),
+    )
+
+    return sorted_ids

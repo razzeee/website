@@ -74,24 +74,38 @@ def load_appstream():
     current_apps = {app[5:] for app in db.redis_conn.smembers("apps:index")}
     current_developers = db.redis_conn.smembers("developers:index")
     current_projectgroups = db.redis_conn.smembers("projectgroups:index")
+    current_types = db.redis_conn.smembers("types:index")
+    current_addons = db.redis_conn.smembers("addons:index")
+    current_categories = db.redis_conn.smembers("categories:index")
 
     with db.redis_conn.pipeline() as p:
         p.delete("developers:index", *current_developers)
         p.delete("projectgroups:index", *current_projectgroups)
+        p.delete("addons:index", *current_addons)
+        p.delete("categories:index", *current_categories)
+        p.delete("types:index", *current_types)
 
         search_apps = []
         for appid in apps:
             redis_key = f"apps:{appid}"
 
-            search_apps.append(add_to_search(appid, apps[appid]))
+            if apps[appid].get("type") == "desktop-application":
+                search_apps.append(add_to_search(appid, apps[appid]))
 
-            if developer_name := apps[appid].get("developer_name"):
-                p.sadd("developers:index", developer_name)
+                if developer_name := apps[appid].get("developer_name"):
+                    p.sadd("developers:index", developer_name)
 
-            if project_group := apps[appid].get("project_group"):
-                p.sadd("projectgroups:index", project_group)
+                if project_group := apps[appid].get("project_group"):
+                    p.sadd("projectgroups:index", project_group)
 
             p.set(redis_key, json.dumps(apps[appid]))
+
+            if type := apps[appid].get("type"):
+                p.sadd("types:index", type)
+                p.sadd(f"types:{type}", redis_key)
+
+            if extends := apps[appid].get("extends"):
+                p.sadd(f"addons:{extends}", redis_key)
 
             if categories := apps[appid].get("categories"):
                 for category in categories:
@@ -120,8 +134,8 @@ def load_appstream():
     return new_apps
 
 
-def list_appstream():
-    apps = {app[5:] for app in db.redis_conn.smembers("apps:index")}
+def list_appstream(type: str = "desktop-application"):
+    apps = {app[5:] for app in db.redis_conn.smembers(f"types:{type}")}
     return sorted(apps)
 
 
@@ -133,3 +147,23 @@ def get_recently_updated(limit: int = 100):
 def get_recently_added(limit: int = 100):
     zset = db.redis_conn.zrevrange("new_apps_zset", 0, limit - 1)
     return [appid for appid in zset if db.redis_conn.exists(f"apps:{appid}")]
+
+def get_addons(appid: str):
+    result = []
+    if summary := db.get_json_key(f"summary:{appid}"):
+        extension_ids = list(summary["metadata"]["extensions"].keys())
+
+        apps = list_appstream(type="addon")
+
+        for app in apps:
+            for extension_id in extension_ids:
+                if app.startswith(extension_id):
+                    result.append(app)
+
+    if index := db.redis_conn.smembers(f"addons:{appid}"):
+        json_appdata = db.redis_conn.mget(index)
+        appdata = [json.loads(app) for app in json_appdata]
+
+        result.append((app["id"]) for app in appdata)
+
+    return result
