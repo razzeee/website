@@ -38,12 +38,20 @@ export const CATEGORY_URL = (
   category: keyof typeof Category,
   page?: number,
   per_page?: number,
+  filter_subcategory?: string[],
+  exclude_subcategory?: string[],
 ): string => {
-  if (page && per_page) {
-    return `${BASE_URI}/category/${category}?page=${page}&per_page=${per_page}`
-  } else {
-    return `${BASE_URI}/category/${category}`
+  let url = []
+  if (filter_subcategory) {
+    url.push(`filter_subcategory=${filter_subcategory.join(",")}`)
   }
+  if (exclude_subcategory) {
+    url.push(`exclude_subcategory=${exclude_subcategory.join(",")}`)
+  }
+  if (page && per_page) {
+    url.push(`page=${page}&per_page=${per_page}`)
+  }
+  return `${BASE_URI}/category/${category}?${url.join("&")}`
 }
 export const SUBCATEGORY_URL = (
   category: keyof typeof Category,

@@ -113,9 +113,17 @@ export async function fetchCategory(
   category: keyof typeof Category,
   page?: number,
   per_page?: number,
+  filter_subcategories?: string[],
+  exclude_subcategories?: string[],
 ) {
   return axios.get<MeilisearchResponse<AppsIndex>>(
-    CATEGORY_URL(category, page, per_page),
+    CATEGORY_URL(
+      category,
+      page,
+      per_page,
+      filter_subcategories,
+      exclude_subcategories,
+    ),
   )
 }
 

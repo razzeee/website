@@ -133,11 +133,31 @@ export const getStaticProps: GetStaticProps = async ({ locale }) => {
 
   const categoryPromise = Object.keys(Category).map(
     async (category: Category) => {
-      return {
-        category,
-        apps: (await fetchCategory(category, 1, 6)).data,
+      switch (category) {
+        case Category.Game:
+          return {
+            category,
+            apps: (await fetchCategory(category, 1, 6, undefined, ["Emulator"]))
+              .data,
+          }
+        default:
+          return {
+            category,
+            apps: (await fetchCategory(category, 1, 6)).data,
+          }
       }
     },
+  )
+
+  categoryPromise.push(
+    (async () => {
+      return {
+        category: Category.Game,
+        apps: (
+          await fetchCategory(Category.Game, 1, 6, ["Emulator"], undefined)
+        ).data,
+      }
+    })(),
   )
 
   topAppsByCategory = await Promise.all(categoryPromise)

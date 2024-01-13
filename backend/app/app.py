@@ -27,6 +27,8 @@ def get_categories() -> list[str]:
 @router.get("/category/{category}", tags=["app"])
 def get_category(
     category: schemas.MainCategory,
+    filter_subcategory: str | None = None,
+    exclude_subcategory: str | None = None,
     page: int | None = None,
     per_page: int | None = None,
     response: Response = Response(),
@@ -37,7 +39,13 @@ def get_category(
         response.status_code = 400
         return response
 
-    result = search.get_by_selected_categories([category], page, per_page)
+    result = search.get_by_selected_categories(
+        [category],
+        [filter_subcategory] if filter_subcategory else None,
+        [exclude_subcategory] if exclude_subcategory else None,
+        page,
+        per_page,
+    )
 
     return result
 

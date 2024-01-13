@@ -53,6 +53,8 @@ def delete_apps(app_id_list):
 
 def get_by_selected_categories(
     selected_categories: list[schemas.MainCategory],
+    filter_subcategories: list[str] | None,
+    exclude_subcategories: list[str] | None,
     page: int | None,
     hits_per_page: int | None,
 ):
@@ -60,10 +62,22 @@ def get_by_selected_categories(
         f"categories = {category.value}" for category in selected_categories
     ]
 
+    subcategory_list = []
+    if filter_subcategories:
+        subcategory_list = [
+            f"sub_categories = {subcategory}" for subcategory in filter_subcategories
+        ]
+
+    exclude_subcategory_list = []
+    if exclude_subcategories:
+        exclude_subcategory_list = [
+            f"sub_categories != {subcategory}" for subcategory in exclude_subcategories
+        ]
+
     return client.index("apps").search(
         "",
         {
-            "filter": [category_list],
+            "filter": category_list + subcategory_list + exclude_subcategory_list,
             "sort": ["installs_last_month:desc"],
             "hitsPerPage": hits_per_page or 250,
             "page": page or 1,
