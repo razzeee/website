@@ -5,6 +5,7 @@ from urllib.parse import urlparse, urlunparse
 
 import orjson
 import requests
+from fastapi_sqlalchemy import db as sqldb
 
 from app import utils
 
@@ -145,6 +146,7 @@ def _get_stats(app_count: int) -> dict[str, dict[str, int]]:
         "delta_downloads_per_day": delta_downloads_per_day,
         "downloads": sum(downloads_per_day.values()),
         "number_of_apps": app_count,
+        "number_of_verified_apps": models.AppVerification.all_verified_count(sqldb),
         "category_totals": totals["facetDistribution"]["main_categories"],
     }
 

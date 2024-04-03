@@ -652,6 +652,13 @@ class AppVerification(Base):
         )
 
     @staticmethod
+    def all_verified_count(db) -> int:
+        return (
+            db.session.query(func.count(AppVerification.app_id))
+            .filter_by(verified=True)
+        )
+
+    @staticmethod
     def delete_hash(hasher: utils.Hasher, db, user: FlathubUser):
         """
         Add a user's verified apps to the hasher for token generation
