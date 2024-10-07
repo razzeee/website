@@ -31,7 +31,7 @@ import {
   RotatedAxisTick,
   FlathubTooltip,
 } from "src/chartComponents"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { ChartContainer, ChartConfig } from "@/components/ui/chart"
 import ReactCountryFlag from "react-country-flag"
 
@@ -39,6 +39,24 @@ const countries = registerIsoCountriesLocales()
 
 const DownloadsPerCountry = ({ stats }: { stats: StatsResult }) => {
   const { t } = useTranslation()
+
+  const ref = useRef<HTMLDivElement>(null)
+
+  const [width, setWidth] = useState(0)
+
+  const updateDimensions = () => {
+    if (ref.current) setWidth(ref.current.clientWidth)
+  }
+
+  useEffect(() => {
+    if (ref?.current) {
+      window.addEventListener("resize", updateDimensions)
+      setWidth(ref.current.offsetWidth)
+    }
+    return () => {
+      window.removeEventListener("resize", updateDimensions)
+    }
+  }, [ref, ref.current?.offsetWidth, setWidth])
 
   let country_data: { country: string; value: number }[] = []
   if (stats.countries) {
@@ -75,38 +93,42 @@ const DownloadsPerCountry = ({ stats }: { stats: StatsResult }) => {
       <h2 className="mb-6 mt-12 text-2xl font-bold">
         {t("downloads-per-country")}
       </h2>
-      <div className={`flex justify-center items-center gap-5  ${styles.map}`}>
-        <WorldMap
-          color="hsl(var(--color-primary))"
-          backgroundColor="hsl(var(--bg-color-secondary))"
-          borderColor="hsl(var(--text-primary))"
-          size="responsive"
-          data={country_data}
-          tooltipTextFunction={getLocalizedText}
-          rtl={i18n.dir() === "rtl"}
-        />
-        <div className="overflow-y-auto max-h-[500px] flex flex-col rounded-xl bg-flathub-white p-4 shadow-md dark:bg-flathub-arsenic">
-          {country_data
-            .toSorted((a, b) => b.value - a.value)
-            .map(({ country, value }, i) => {
-              const translatedCountryName = countries.getName(
-                country,
-                i18n.language,
-              )
-              return (
-                <div
-                  key={country}
-                  className="flex gap-4 items-center justify-between px-4 py-2"
-                >
-                  <div className="text-lg font-semibold">{i + 1}.</div>
-                  <div className="flex gap-2 items-center">
-                    <ReactCountryFlag countryCode={country} />
-                    <div>{translatedCountryName}</div>
+      <div className="flex" ref={ref}>
+        <div
+          className={`flex justify-center items-center gap-5  ${styles.map}`}
+        >
+          <WorldMap
+            color="hsl(var(--color-primary))"
+            backgroundColor="hsl(var(--bg-color-secondary))"
+            borderColor="hsl(var(--text-primary))"
+            size={width / 2}
+            data={country_data}
+            tooltipTextFunction={getLocalizedText}
+            rtl={i18n.dir() === "rtl"}
+          />
+          <div className="overflow-y-auto max-h-[500px] flex flex-col rounded-xl bg-flathub-white p-4 shadow-md dark:bg-flathub-arsenic">
+            {country_data
+              .toSorted((a, b) => b.value - a.value)
+              .map(({ country, value }, i) => {
+                const translatedCountryName = countries.getName(
+                  country,
+                  i18n.language,
+                )
+                return (
+                  <div
+                    key={country}
+                    className="flex gap-4 items-center justify-between px-4 py-2"
+                  >
+                    <div className="text-lg font-semibold">{i + 1}.</div>
+                    <div className="flex gap-2 items-center">
+                      <ReactCountryFlag countryCode={country} />
+                      <div>{translatedCountryName}</div>
+                    </div>
+                    <div>{value.toLocaleString(i18n.language)}</div>
                   </div>
-                  <div>{value.toLocaleString(i18n.language)}</div>
-                </div>
-              )
-            })}
+                )
+              })}
+          </div>
         </div>
       </div>
     </>
