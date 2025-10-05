@@ -20,6 +20,7 @@ from fastapi.responses import JSONResponse
 from github import Github
 from gitlab import Gitlab
 from pydantic import BaseModel
+from sqlalchemy import func
 from starlette.middleware.sessions import SessionMiddleware
 
 from . import apps, config, models
@@ -178,6 +179,7 @@ def get_login_methods() -> list[LoginMethod]:
         LoginMethod(method="gitlab", name="GitLab"),
         LoginMethod(method="gnome", name="GNOME GitLab"),
         LoginMethod(method="kde", name="KDE GitLab"),
+        LoginMethod(method="magic-link", name="Magic Link"),
     ]
 
 
@@ -722,6 +724,214 @@ def continue_kde_flow(
         models.KdeAccount,
         kde_postlogin,
     )
+
+
+class MagicLinkRequest(BaseModel):
+    email: str
+
+
+class MagicLinkVerifyRequest(BaseModel):
+    token: str
+
+
+@router.post(
+    "/login/magic-link",
+    tags=["auth"],
+    responses={
+        200: {"description": "Magic link sent successfully"},
+        400: {"description": "Invalid email address"},
+        500: {"description": "Email sending failed"},
+    },
+)
+def request_magic_link(request_data: MagicLinkRequest, request: Request):
+    """
+    Request a magic link to be sent to the provided email address.
+
+    This endpoint validates the email and sends a magic link that can be used
+    to log in without a password. The link expires after 15 minutes.
+
+    If the email belongs to an existing connected account, the user will be logged in.
+    If the email is new, a new account will be created upon verification.
+    """
+    email = request_data.email.lower().strip()
+
+    if not email or "@" not in email:
+        raise HTTPException(status_code=400, detail="Invalid email address")
+
+    with get_db("writer") as db:
+        # Check if any connected account has this email (including EmailAccount)
+        user = None
+        for account_model in [
+            models.GithubAccount,
+            models.GitlabAccount,
+            models.GnomeAccount,
+            models.GoogleAccount,
+            models.KdeAccount,
+            models.EmailAccount,
+        ]:
+            account = (
+                db.session.query(account_model)
+                .filter(func.lower(account_model.email) == email)
+                .first()
+            )
+            if account:
+                user = db.session.get(models.FlathubUser, account.user)
+                break
+
+        # Create magic link token for all emails (existing or new)
+        magic_link = models.MagicLinkToken.create(db, email)
+        db.commit()
+
+        # Send email with magic link
+        magic_link_url = (
+            f"{config.settings.frontend_url}/login/magic-link?token={magic_link.token}"
+        )
+
+        # For new users, we don't have a userId yet
+        message_id = (
+            f"magic-link/{user.id}/{magic_link.id}"
+            if user
+            else f"magic-link/new/{magic_link.id}"
+        )
+
+        payload = {
+            "messageId": message_id,
+            "creation_timestamp": datetime.now().timestamp(),
+            "userId": user.id if user else None,
+            "subject": "Your Flathub login link",
+            "previewText": "Click to log in to Flathub",
+            "messageInfo": {
+                "category": EmailCategory.MAGIC_LINK,
+                "magicLinkUrl": magic_link_url,
+                "expiresAt": magic_link.expires_at.isoformat(),
+            },
+        }
+
+        from .worker.emails import send_email_new
+
+        send_email_new.send(payload)
+
+    return {
+        "status": "ok",
+        "message": "If the email exists, a magic link has been sent",
+    }
+
+
+@router.post(
+    "/login/magic-link/verify",
+    tags=["auth"],
+    responses={
+        200: {"description": "Login successful"},
+        400: {"description": "Invalid or expired token"},
+        500: {"description": "Login failed"},
+    },
+)
+def verify_magic_link(verify_data: MagicLinkVerifyRequest, request: Request):
+    """
+    Verify a magic link token and log the user in.
+
+    This endpoint validates the token and creates a session for the user.
+    If this is a new email address, a new user account will be created.
+    """
+    token = verify_data.token.strip()
+
+    if not token:
+        raise HTTPException(status_code=400, detail="Token is required")
+
+    with get_db("writer") as db:
+        # Find and validate the token
+        magic_link = models.MagicLinkToken.by_token(db, token)
+
+        if not magic_link:
+            raise HTTPException(status_code=400, detail="Invalid token")
+
+        if magic_link.expires_at < datetime.now():
+            db.delete(magic_link)
+            db.commit()
+            raise HTTPException(status_code=400, detail="Token has expired")
+
+        # Find the user by email or create a new one
+        user = None
+        account = None
+        for account_model in [
+            models.GithubAccount,
+            models.GitlabAccount,
+            models.GnomeAccount,
+            models.GoogleAccount,
+            models.KdeAccount,
+            models.EmailAccount,
+        ]:
+            account = (
+                db.session.query(account_model)
+                .filter(func.lower(account_model.email) == magic_link.email)
+                .first()
+            )
+            if account:
+                user = db.session.get(models.FlathubUser, account.user)
+                # Update last_used timestamp
+                account.last_used = datetime.now()
+                db.add(account)
+                break
+
+        # If no user found, create a new user with email account
+        if not user:
+            # Create new user
+            now = datetime.now()
+            user = models.FlathubUser(
+                display_name=magic_link.email.split("@")[0],
+            )
+            db.add(user)
+            db.flush()  # Get user.id
+
+            # Create email account
+            email_account = models.EmailAccount(
+                user=user.id,
+                email=magic_link.email,
+                login=magic_link.email,
+                display_name=magic_link.email.split("@")[0],
+                created=now,
+                updated=now,
+            )
+            db.add(email_account)
+            db.flush()
+
+        if user.deleted:
+            db.delete(magic_link)
+            db.commit()
+            raise HTTPException(status_code=400, detail="User not found")
+
+        # Delete the used token
+        db.delete(magic_link)
+
+        # Log the user in
+        request.session["user-id"] = user.id
+
+        db.commit()
+
+        # Send security login notification
+        payload = {
+            "messageId": f"{user.id}/login/{datetime.now().isoformat()}",
+            "creation_timestamp": datetime.now().timestamp(),
+            "userId": user.id,
+            "subject": "New login to Flathub account",
+            "previewText": "Flathub Login",
+            "messageInfo": {
+                "category": EmailCategory.SECURITY_LOGIN,
+                "provider": "magic-link",
+                "login": magic_link.email,
+                "time": datetime.now().isoformat(),
+                "ipAddress": request.client.host if request.client else "Unknown",
+            },
+        }
+
+        from .worker.emails import send_email_new
+
+        send_email_new.send(payload)
+
+    return {
+        "status": "ok",
+        "result": "logged_in",
+    }
 
 
 def continue_oauth_flow(

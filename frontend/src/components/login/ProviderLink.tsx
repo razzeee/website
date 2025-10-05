@@ -10,6 +10,7 @@ import { GnomeLogo } from "./GnomeLogo"
 import { GitlabLogo } from "./GitlabLogo"
 import { GithubLogo } from "./GithubLogo"
 import { KdeLogo } from "./KdeLogo"
+import { MailIcon } from "lucide-react"
 import { clsx } from "clsx"
 import { useRouter } from "src/i18n/navigation"
 import { robustFetch } from "../../utils/fetch"
@@ -37,6 +38,21 @@ const ProviderLink: FunctionComponent<Props> = ({
     // Prevent multiple async requests
     if (clicked) return
     setClicked(true)
+
+    // Magic link uses a different flow - redirect to form page
+    if (provider.method === "magic-link") {
+      const returnTo = searchParams.get("returnTo")
+      if (returnTo) {
+        setReturnTo(
+          returnTo.startsWith(process.env.NEXT_PUBLIC_SITE_BASE_URI) ||
+            returnTo.startsWith("/")
+            ? returnTo
+            : undefined,
+        )
+      }
+      router.push("/login/magic-link")
+      return
+    }
 
     const url = `${LOGIN_PROVIDERS_URL}/${provider.method}`
 
@@ -101,6 +117,9 @@ const ProviderLink: FunctionComponent<Props> = ({
         {provider.method === "gnome" && <GnomeLogo />}
         {provider.method === "gitlab" && <GitlabLogo />}
         {provider.method === "kde" && <KdeLogo />}
+        {provider.method === "magic-link" && (
+          <MailIcon className="h-12 w-12 text-flathub-celestial-blue" />
+        )}
       </div>
       {loginText}
     </button>

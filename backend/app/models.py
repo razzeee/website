@@ -1,5 +1,6 @@
 import enum
 import json
+import secrets
 from datetime import date, datetime, timedelta
 from math import ceil
 from typing import Any, Optional, Union
@@ -67,6 +68,7 @@ ConnectedAccountResult = Union[
     "GnomeAccountResult",
     "GoogleAccountResult",
     "KdeAccountResult",
+    "EmailAccountResult",
 ]
 
 
@@ -76,6 +78,7 @@ class ConnectedAccountProvider(str, enum.Enum):
     GNOME = "gnome"
     GOOGLE = "google"
     KDE = "kde"
+    EMAIL = "email"
 
 
 class RoleName(str, enum.Enum):
@@ -1048,15 +1051,137 @@ class KdeAccount(Base):
 FlathubUser.TABLES_FOR_DELETE.append(KdeAccount)
 
 
+class EmailAccountResult(BaseModel):
+    provider: ConnectedAccountProvider
+    id: int
+    login: str
+    email: str
+    last_used: datetime | None
+
+
+class EmailAccount(Base):
+    __tablename__ = "emailaccount"
+
+    provider = ConnectedAccountProvider.EMAIL
+
+    id = mapped_column(Integer, primary_key=True)
+    user = mapped_column(
+        Integer, ForeignKey(FlathubUser.id), nullable=False, index=True
+    )
+    user_entity = relationship(FlathubUser)
+    email = mapped_column(String, nullable=False, unique=True, index=True)
+    login = mapped_column(String, nullable=False)
+    display_name: Mapped[str | None]
+    last_used = mapped_column(DateTime, nullable=True, server_default=None)
+    created = mapped_column(DateTime, nullable=False)
+    updated = mapped_column(DateTime, nullable=False)
+
+    def to_result(self) -> EmailAccountResult:
+        return EmailAccountResult(
+            provider=self.provider,
+            id=self.id,
+            login=self.email,
+            email=self.email,
+            last_used=self.last_used,
+        )
+
+    @staticmethod
+    def by_user(db, user: FlathubUser) -> Optional["EmailAccount"]:
+        return db.session.query(EmailAccount).filter_by(user=user.id).first()
+
+    @staticmethod
+    def by_email(db, email: str) -> Optional["EmailAccount"]:
+        return (
+            db.session.query(EmailAccount)
+            .filter(func.lower(EmailAccount.email) == email.lower())
+            .first()
+        )
+
+    @staticmethod
+    def delete_hash(hasher: utils.Hasher, db, user):
+        """
+        Add a user's information from Email to the hasher for token generation
+        """
+        if account := EmailAccount.by_user(db, user):
+            hasher.add_string("email")
+            hasher.add_string(account.email)
+
+    @staticmethod
+    def delete_user(db, user):
+        """
+        Delete a user's account and information related to Email
+        """
+        db.session.execute(delete(EmailAccount).where(EmailAccount.user == user.id))
+
+
+FlathubUser.TABLES_FOR_DELETE.append(EmailAccount)
+
+
+class MagicLinkToken(Base):
+    __tablename__ = "magiclinktoken"
+
+    id = mapped_column(Integer, primary_key=True)
+    email = mapped_column(String, nullable=False, index=True)
+    token = mapped_column(String, nullable=False, unique=True, index=True)
+    created = mapped_column(DateTime, nullable=False)
+    updated = mapped_column(DateTime, nullable=False)
+    expires_at = mapped_column(DateTime, nullable=False)
+
+    @staticmethod
+    def housekeeping(db):
+        """Clean up expired magic link tokens"""
+        db.execute(
+            delete(MagicLinkToken).where(MagicLinkToken.expires_at < datetime.now())
+        )
+        db.commit()
+
+    @staticmethod
+    def by_token(db, token: str) -> Optional["MagicLinkToken"]:
+        """
+        Retrieve a magic link token by its token string.
+
+        Only returns tokens that have not expired.
+        """
+        return (
+            db.session.query(MagicLinkToken)
+            .filter_by(token=token)
+            .filter(MagicLinkToken.expires_at > datetime.now())
+            .first()
+        )
+
+    @staticmethod
+    def create(db, email: str, expiry_minutes: int = 15) -> "MagicLinkToken":
+        """Create a new magic link token for an email address"""
+        MagicLinkToken.housekeeping(db)
+        token = secrets.token_urlsafe(32)
+        now = datetime.now()
+        magic_link = MagicLinkToken(
+            email=email.lower(),
+            token=token,
+            created=now,
+            updated=now,
+            expires_at=now + timedelta(minutes=expiry_minutes),
+        )
+        db.add(magic_link)
+        db.flush()
+        return magic_link
+
+
 ConnectedAccountTables = [
     GithubAccount,
     GitlabAccount,
     GnomeAccount,
     GoogleAccount,
     KdeAccount,
+    EmailAccount,
 ]
 ConnectedAccount = (
-    GithubAccount | GitlabAccount | GnomeAccount | GoogleAccount | KdeAccount
+    GithubAccount
+    | GitlabAccount
+    | GnomeAccount
+    | GoogleAccount
+    | KdeAccount
+    | EmailAccount
 )
 
 

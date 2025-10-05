@@ -14,6 +14,7 @@ import DeveloperLeftEmail from "../emails/developer-left"
 import DeveloperInviteDeclinedEmail from "../emails/developer-invite-declined"
 import DeveloperInviteAcceptedEmail from "../emails/developer-invite-accepted"
 import DeveloperInviteEmail from "../emails/developer-invite"
+import MagicLinkEmail from "../emails/magic-link"
 import { logger } from "hono/logger"
 import { sentry } from "@hono/sentry"
 import { env } from "hono/adapter"
@@ -201,6 +202,19 @@ const EmailBody = z.object({
       buildId: z.number().openapi({ example: 1 }),
       buildRepo: z.string().openapi({ example: "repo" }),
     }),
+    z.object({
+      category: z.literal("magic_link").openapi({ example: "magic_link" }),
+      magicLinkUrl: z
+        .string()
+        .min(3)
+        .openapi({
+          example: "http://localhost:3000/login/magic-link?token=abc",
+        }),
+      expiresAt: z
+        .string()
+        .min(3)
+        .openapi({ example: "2024-01-01T00:15:00.000Z" }),
+    }),
   ]),
 })
 
@@ -331,6 +345,14 @@ app.openapi(route, async (c) => {
   } else if (messageInfo.category === "upload_token_created") {
     emailHtml = await render(
       UploadTokenCreatedEmail({
+        subject,
+        previewText,
+        ...messageInfo,
+      }),
+    )
+  } else if (messageInfo.category === "magic_link") {
+    emailHtml = await render(
+      MagicLinkEmail({
         subject,
         previewText,
         ...messageInfo,

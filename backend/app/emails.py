@@ -25,6 +25,7 @@ class EmailCategory(str, Enum):
     MODERATION_REJECTED = "moderation_rejected"
     SECURITY_LOGIN = "security_login"
     UPLOAD_TOKEN_CREATED = "upload_token_created"
+    MAGIC_LINK = "magic_link"
 
 
 def _get_destination_and_append(
