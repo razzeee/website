@@ -197,6 +197,9 @@ wheels = [
 ]
 
 [package.optional-dependencies]
+prometheus = [
+    { name = "prometheus-client" },
+]
 redis = [
     { name = "redis" },
 ]
@@ -237,7 +240,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "alembic" },
     { name = "apscheduler" },
-    { name = "dramatiq", extra = ["redis", "watch"] },
+    { name = "dramatiq", extra = ["prometheus", "redis", "watch"] },
     { name = "fastapi" },
     { name = "feedgen" },
     { name = "granian", extra = ["reload", "uvloop"] },
@@ -275,7 +278,7 @@ dev = [
 requires-dist = [
     { name = "alembic", specifier = ">=1.14.1,<2.0.0" },
     { name = "apscheduler", specifier = "==3.11.2" },
-    { name = "dramatiq", extras = ["redis", "watch"], specifier = ">=1.17.1,<3.0.0" },
+    { name = "dramatiq", extras = ["redis", "watch", "prometheus"], specifier = ">=1.17.1,<3.0.0" },
     { name = "fastapi", specifier = ">=0.115.8,<1.0.0" },
     { name = "feedgen", specifier = ">=1.0.0,<2.0.0" },
     { name = "granian", extras = ["reload", "uvloop"], specifier = ">=2.6.0" },
@@ -647,6 +650,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/96/2d/02d4312c973c6050a18b314a5ad0b3210edb65a906f868e31c111dede4a6/pluggy-1.5.0.tar.gz", hash = "sha256:2cffa88e94fdc978c4c574f15f9e59b7f4201d439195c3715ca9e2486f1d0cf1", size = 67955, upload-time = "2024-04-20T21:34:42.531Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/88/5f/e351af9a41f866ac3f1fac4ca0613908d9a41741cfcf2228f4ad853b697d/pluggy-1.5.0-py3-none-any.whl", hash = "sha256:44e1ad92c8ca002de6377e165f3e0f1be63266ab4d554740532335b9d75ea669", size = 20556, upload-time = "2024-04-20T21:34:40.434Z" },
+]
+
+[[package]]
+name = "prometheus-client"
+version = "0.23.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/23/53/3edb5d68ecf6b38fcbcc1ad28391117d2a322d9a1a3eff04bfdb184d8c3b/prometheus_client-0.23.1.tar.gz", hash = "sha256:6ae8f9081eaaaf153a2e959d2e6c4f4fb57b12ef76c8c7980202f1e57b48b2ce", size = 80481, upload-time = "2025-09-18T20:47:25.043Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b8/db/14bafcb4af2139e046d03fd00dea7873e48eafe18b7d2797e73d6681f210/prometheus_client-0.23.1-py3-none-any.whl", hash = "sha256:dd1913e6e76b59cfe44e7a4b83e01afc9873c1bdfd2ed8739f1e76aeca115f99", size = 61145, upload-time = "2025-09-18T20:47:23.875Z" },
 ]
 
 [[package]]
