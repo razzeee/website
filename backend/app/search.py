@@ -688,6 +688,58 @@ def get_by_developer(
     )
 
 
+class DeveloperSummary(BaseModel):
+    total_apps: int
+    total_installs: int
+    verified_apps: int
+    main_categories: list[str]
+    is_verified: bool
+
+
+def get_developer_summary(developer: str) -> DeveloperSummary:
+    escaped_developer = (
+        developer.replace("'", "\\'").replace('"', '\\"').replace("/", "\\/")
+    )
+
+    result = client.index("apps").search(
+        "",
+        {
+            "filter": [
+                f"developer_name = '{escaped_developer}'",
+                "type IN [console-application, desktop-application]",
+                "NOT icon IS NULL",
+            ],
+            "limit": 1000,
+            "attributesToRetrieve": [
+                "installs_last_month",
+                "verification_verified",
+                "main_categories",
+            ],
+        },
+    )
+
+    hits = result.get("hits", [])
+    total_apps = len(hits)
+    total_installs = sum(h.get("installs_last_month", 0) or 0 for h in hits)
+    verified_apps = sum(1 for h in hits if h.get("verification_verified"))
+
+    categories = set()
+    for h in hits:
+        cats = h.get("main_categories")
+        if isinstance(cats, list):
+            categories.update(cats)
+        elif isinstance(cats, str):
+            categories.add(cats)
+
+    return DeveloperSummary(
+        total_apps=total_apps,
+        total_installs=total_installs,
+        verified_apps=verified_apps,
+        main_categories=sorted(categories),
+        is_verified=verified_apps > 0,
+    )
+
+
 def get_by_keyword(
     keyword: str, page: int | None, hits_per_page: int | None, locale: str
 ) -> MeilisearchResponse[AppsIndex]:

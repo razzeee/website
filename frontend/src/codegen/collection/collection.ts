@@ -24,6 +24,7 @@ import qs from "qs"
 
 import type {
   AppSearchDevelopersResponse,
+  DeveloperSummary,
   GetCategoryCollectionCategoryCategoryGetParams,
   GetDeveloperCollectionDeveloperDeveloperGetParams,
   GetDevelopersCollectionDeveloperGetParams,
@@ -1373,6 +1374,19 @@ export function useGetDeveloperCollectionDeveloperDeveloperGet<
   > & { queryKey: DataTag<QueryKey, TData, TError> }
 
   return { ...query, queryKey: queryOptions.queryKey }
+}
+
+/**
+ * Get aggregated summary data for a specific developer.
+ * @summary Get Developer Summary
+ */
+export const getDeveloperSummaryCollectionDeveloperDeveloperSummaryGet = (
+  developer: string,
+  options?: AxiosRequestConfig,
+): Promise<AxiosResponse<DeveloperSummary>> => {
+  return axios.get(`/collection/developer/${developer}/summary`, {
+    ...options,
+  })
 }
 
 /**
