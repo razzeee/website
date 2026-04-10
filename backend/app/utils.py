@@ -107,6 +107,7 @@ def appstream2dict(appstream_url=None) -> dict[str, dict]:
 
         isMobileFriendly = False
         hasTouch = False
+        controls_set = set()
 
         for tag_name in ("requires", "recommends"):
             if (tag := component.find(tag_name)) is not None and (
@@ -120,11 +121,14 @@ def appstream2dict(appstream_url=None) -> dict[str, dict]:
             element = component.find(requirement)
             if element is not None:
                 controls = element.findall("control")
-                if any(control.text == "touch" for control in controls):
-                    hasTouch = True
-                    break
+                for control in controls:
+                    if control.text:
+                        controls_set.add(control.text)
+                        if control.text == "touch":
+                            hasTouch = True
 
         app["isMobileFriendly"] = isMobileFriendly and hasTouch
+        app["controls"] = sorted(controls_set) if controls_set else []
 
         descriptions = component.findall("description")
         if len(descriptions):

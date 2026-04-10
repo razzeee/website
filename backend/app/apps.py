@@ -135,6 +135,7 @@ def add_to_search(app_id: str, app: dict, apps_locale: dict) -> dict:
             "flathub::verification::timestamp", None
         ),
         "runtime": app.get("bundle", {}).get("runtime", None),
+        "controls": app.get("controls", []),
     }
 
 

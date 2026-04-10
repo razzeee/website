@@ -72,6 +72,7 @@ class AppsIndex(BaseModel):
     installs_last_month: int | None = None
     favorites_count: int | None = None
     isMobileFriendly: bool
+    controls: list[str] | None = None
 
     # Custom validator to map None to the Enum 'NONE'
     @field_validator("verification_method", mode="before")
@@ -145,6 +146,7 @@ def _configure_meilisearch_index(client):
             "keywords",
             "localized_keywords",
             "isMobileFriendly",
+            "controls",
         ]
     )
 
@@ -756,6 +758,7 @@ def search_apps_post(
                         "is_free_license",
                         "type",
                         "arches",
+                        "controls",
                     ],
                 },
             )
