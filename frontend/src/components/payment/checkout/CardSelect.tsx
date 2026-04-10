@@ -114,7 +114,7 @@ const CardSelect: FunctionComponent<Props> = ({
                 }
               />
               {isSelected && (
-                <div className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-flathub-celestial-blue text-white shadow-md">
+                <div className="absolute -top-2 -end-2 flex h-6 w-6 items-center justify-center rounded-full bg-flathub-celestial-blue text-white shadow-md">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     viewBox="0 0 20 20"

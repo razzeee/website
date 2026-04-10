@@ -72,7 +72,7 @@ export function BuildRepoFilter({
             <div className="flex items-center justify-between w-full">
               <span className="font-medium">{repoLabels[status]}</span>
               {selectedRepoStatus === status && (
-                <CheckCircle2 className="h-4 w-4 text-primary ml-2" />
+                <CheckCircle2 className="h-4 w-4 text-primary ms-2" />
               )}
             </div>
           </DropdownMenuCheckboxItem>

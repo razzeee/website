@@ -1,6 +1,7 @@
 import { useTheme } from "next-themes"
 import { getIntlLocale } from "./localize"
 import { useLocale } from "next-intl"
+import { getLangDir } from "rtl-detect"
 
 export function axisStroke(resolvedTheme: string): string {
   return resolvedTheme === "light"
@@ -16,6 +17,8 @@ export function primaryStroke(resolvedTheme: string): string {
 
 export const RotatedAxisTick = (props) => {
   const { resolvedTheme } = useTheme()
+  const locale = useLocale()
+  const isRtl = getLangDir(locale) === "rtl"
   const { x, y, payload, tickFormatter } = props
 
   return (
@@ -24,13 +27,13 @@ export const RotatedAxisTick = (props) => {
         x={0}
         y={0}
         dy={16}
-        textAnchor="end"
+        textAnchor={isRtl ? "start" : "end"}
         fill={
           resolvedTheme === "light"
             ? "oklch(0% 0 0 / 80%)"
             : "oklch(100% 0 0 / 80%)"
         }
-        transform="rotate(-35)"
+        transform={isRtl ? "rotate(35)" : "rotate(-35)"}
       >
         {tickFormatter ? tickFormatter(payload.value) : payload.value}
       </text>

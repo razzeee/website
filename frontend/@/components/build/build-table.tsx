@@ -198,7 +198,7 @@ function BuildRow({ pipeline }: { pipeline: PipelineSummary }) {
             <span className="text-muted-foreground text-xs">Pending</span>
           )}
         </td>
-        <td className="px-6 py-4 text-right">
+        <td className="px-6 py-4 text-end">
           <Button
             variant="ghost"
             size="sm"
@@ -210,7 +210,7 @@ function BuildRow({ pipeline }: { pipeline: PipelineSummary }) {
               className="flex items-center gap-2"
             >
               <span className="text-xs font-medium">Details</span>
-              <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+              <ArrowRight className="h-4 w-4 group-hover:translate-x-1 rtl:group-hover:-translate-x-1 transition-transform rtl:rotate-180" />
             </Link>
           </Button>
         </td>
@@ -296,7 +296,7 @@ function BuildRow({ pipeline }: { pipeline: PipelineSummary }) {
                 className="flex items-center gap-2"
               >
                 <span className="text-xs font-medium">Details</span>
-                <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                <ArrowRight className="h-4 w-4 group-hover:translate-x-1 rtl:group-hover:-translate-x-1 transition-transform rtl:rotate-180" />
               </Link>
             </Button>
           </div>
@@ -329,25 +329,25 @@ export function BuildTable({ pipelines }: BuildTableProps) {
           <table className="w-full text-sm">
             <thead className="bg-gradient-to-r from-muted to-muted/60 border-b-2">
               <tr>
-                <th className="px-6 py-4 text-left font-bold text-xs uppercase tracking-wider">
+                <th className="px-6 py-4 text-start font-bold text-xs uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-4 text-left font-bold text-xs uppercase tracking-wider">
+                <th className="px-6 py-4 text-start font-bold text-xs uppercase tracking-wider">
                   App ID
                 </th>
-                <th className="px-6 py-4 text-left font-bold text-xs uppercase tracking-wider">
+                <th className="px-6 py-4 text-start font-bold text-xs uppercase tracking-wider">
                   Repo
                 </th>
-                <th className="px-6 py-4 text-left font-bold text-xs uppercase tracking-wider">
+                <th className="px-6 py-4 text-start font-bold text-xs uppercase tracking-wider">
                   Source
                 </th>
-                <th className="px-6 py-4 text-left font-bold text-xs uppercase tracking-wider">
+                <th className="px-6 py-4 text-start font-bold text-xs uppercase tracking-wider">
                   Created
                 </th>
-                <th className="px-6 py-4 text-left font-bold text-xs uppercase tracking-wider">
+                <th className="px-6 py-4 text-start font-bold text-xs uppercase tracking-wider">
                   Duration
                 </th>
-                <th className="px-6 py-4 text-right font-bold text-xs uppercase tracking-wider">
+                <th className="px-6 py-4 text-end font-bold text-xs uppercase tracking-wider">
                   Actions
                 </th>
               </tr>

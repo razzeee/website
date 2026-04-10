@@ -77,20 +77,20 @@ function BuildsContent() {
           </div>
           <div className="flex gap-3">
             <div className="relative flex-1 max-w-2xl">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Search className="absolute start-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
               <Input
                 type="text"
                 placeholder="Search by app ID (e.g., org.gnome.Calculator)..."
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                className="pl-12 pr-12 h-12 text-base border-2 focus:border-primary transition-all"
+                className="ps-12 pe-12 h-12 text-base border-2 focus:border-primary transition-all"
               />
               {searchInput && (
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 hover:bg-destructive/10"
+                  className="absolute end-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 hover:bg-destructive/10"
                   onClick={() => setSearchInput("")}
                 >
                   <X className="h-4 w-4" />
@@ -98,7 +98,7 @@ function BuildsContent() {
               )}
             </div>
             <Button onClick={handleSearch} size="lg" className="px-8 h-12">
-              <Search className="h-4 w-4 mr-2" />
+              <Search className="h-4 w-4 me-2" />
               Search
             </Button>
             {appIdFromUrl && (
@@ -108,7 +108,7 @@ function BuildsContent() {
                 size="lg"
                 className="h-12"
               >
-                <X className="h-4 w-4 mr-2" />
+                <X className="h-4 w-4 me-2" />
                 Clear Filter
               </Button>
             )}

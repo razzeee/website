@@ -98,7 +98,7 @@ const Verification: FunctionComponent<Props> = ({
               </div>
             </div>
           </TooltipTrigger>
-          <TooltipContent side="right" className="max-w-xs">
+          <TooltipContent side="bottom" className="max-w-xs">
             {t.rich("unverified-tooltip", {
               appid: (chunks) => <b>{appId}</b>,
             })}

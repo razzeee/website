@@ -39,10 +39,10 @@ export function BuildCard({ pipelineSummary }: PipelineCardProps) {
     <Card
       className={cn(
         "group transition-all duration-300 hover:shadow-lg hover:-translate-y-1",
-        "border-l-4 bg-card",
-        isActive && "border-l-blue-500 bg-blue-50/80 dark:bg-slate-900/50",
-        isSuccess && "border-l-green-500 bg-green-50/80 dark:bg-slate-900/50",
-        isFailure && "border-l-red-500 bg-red-50/80 dark:bg-slate-900/50",
+        "border-s-4 bg-card",
+        isActive && "border-s-blue-500 bg-blue-50/80 dark:bg-slate-900/50",
+        isSuccess && "border-s-green-500 bg-green-50/80 dark:bg-slate-900/50",
+        isFailure && "border-s-red-500 bg-red-50/80 dark:bg-slate-900/50",
       )}
     >
       <CardHeader className="pb-3 space-y-3">
@@ -85,7 +85,7 @@ export function BuildCard({ pipelineSummary }: PipelineCardProps) {
         <Button variant="outline" size="sm" className="flex-1 group" asChild>
           <Link href={`/builds/${id}`}>
             View Details
-            <ArrowRight className="h-3 w-3 ml-2 group-hover:translate-x-1 transition-transform" />
+            <ArrowRight className="h-3 w-3 ms-2 group-hover:translate-x-1 rtl:group-hover:-translate-x-1 transition-transform rtl:rotate-180" />
           </Link>
         </Button>
         <Button variant="ghost" size="sm" asChild>

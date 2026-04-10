@@ -143,7 +143,7 @@ export default function AppBuildStatusClient({ appId }: Props) {
           </div>
           <h2 className="text-3xl font-bold">Build History by Repository</h2>
         </div>
-        <p className="text-muted-foreground ml-14">
+        <p className="text-muted-foreground ms-14">
           Recent builds organized by target repository
         </p>
       </div>
