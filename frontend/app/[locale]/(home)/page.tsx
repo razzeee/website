@@ -12,6 +12,8 @@ import {
   AppSchemasSortBy,
   DesktopAppstream,
 } from "../../../src/codegen"
+import { getEcosystemsCollectionEcosystemGet } from "../../../src/codegen/collection/collection"
+import { Metadata } from "next"
 import { APPS_IN_PREVIEW_COUNT } from "../../../src/env"
 import {
   MainCategory,
@@ -42,6 +44,20 @@ export async function generateStaticParams() {
   }))
 
   return params
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>
+}): Promise<Metadata> {
+  const { locale } = await params
+
+  return {
+    alternates: {
+      canonical: `${process.env.NEXT_PUBLIC_SITE_BASE_URI}/${locale}`,
+    },
+  }
 }
 
 async function getCollections(locale: string) {
@@ -170,7 +186,7 @@ async function getGameData(locale: string) {
         page: 1,
         per_page: 12,
         locale,
-        subcategory: ["packageManager"],
+        subcategory: ["packageManager", "launcherStore"],
         sort_by: AppSchemasSortBy.trending,
       },
     ).then((r) => r.data),
@@ -180,7 +196,7 @@ async function getGameData(locale: string) {
         page: 1,
         per_page: 12,
         locale,
-        subcategory: ["utility", "network"],
+        subcategory: ["utility", "network", "gameTool"],
         sort_by: AppSchemasSortBy.trending,
       },
     ).then((r) => r.data),
@@ -209,18 +225,27 @@ export default async function HomePage({
 
   const currentDate = formatISO(new Date(), { representation: "date" })
 
-  // Fetch all data in parallel
-  const [
-    [recentlyUpdated, popular, recentlyAdded, trending, mobile],
-    topAppsByCategory,
-    { heroBannerData, appOfTheDayAppstream },
-    [games, emulators, gameLaunchers, gameTools],
-  ] = await Promise.all([
-    getCollections(locale),
-    getCategoryData(locale),
-    getHeroBanner(currentDate, locale),
-    getGameData(locale),
-  ])
+  // Fetch all data sequentially to reduce backend load during build
+  const collections = await getCollections(locale)
+  const [recentlyUpdated, popular, recentlyAdded, trending, mobile] =
+    collections
+
+  const topAppsByCategory = await getCategoryData(locale)
+
+  const heroBanner = await getHeroBanner(currentDate, locale)
+  const { heroBannerData, appOfTheDayAppstream } = heroBanner
+
+  const gameData = await getGameData(locale)
+  const [games, emulators, gameLaunchers, gameTools] = gameData
+
+  // Fetch ecosystem data for the browse-by-ecosystem section
+  let ecosystems: { id: string; name: string; app_count: number }[] = []
+  try {
+    const ecosystemResponse = await getEcosystemsCollectionEcosystemGet()
+    ecosystems = ecosystemResponse.data
+  } catch {
+    // Ecosystems section is non-critical; skip if API unavailable
+  }
 
   return (
     <HomeClient
@@ -236,6 +261,7 @@ export default async function HomePage({
       emulators={emulators}
       gameLaunchers={gameLaunchers}
       gameTools={gameTools}
+      ecosystems={ecosystems}
     />
   )
 }

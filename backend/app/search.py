@@ -569,6 +569,108 @@ def get_runtime_list() -> dict[str, int]:
     )["facetDistribution"]["runtime"]
 
 
+ECOSYSTEM_RUNTIME_PREFIXES = {
+    "gnome": "org.gnome.Platform",
+    "kde": "org.kde.Platform",
+    "freedesktop": "org.freedesktop.Platform",
+    "elementary": "io.elementary.Platform",
+}
+
+
+class EcosystemInfo(BaseModel):
+    id: str
+    name: str
+    app_count: int
+
+
+def get_ecosystems() -> list[EcosystemInfo]:
+    runtime_dist = get_runtime_list()
+
+    ecosystem_names = {
+        "gnome": "GNOME",
+        "kde": "KDE",
+        "freedesktop": "Freedesktop",
+        "elementary": "elementary",
+    }
+
+    result = []
+    for eco_id, prefix in ECOSYSTEM_RUNTIME_PREFIXES.items():
+        count = sum(v for k, v in runtime_dist.items() if k.startswith(prefix))
+        if count > 0:
+            result.append(
+                EcosystemInfo(
+                    id=eco_id,
+                    name=ecosystem_names.get(eco_id, eco_id),
+                    app_count=count,
+                )
+            )
+
+    result.sort(key=lambda x: x.app_count, reverse=True)
+    return result
+
+
+def get_by_ecosystem(
+    ecosystem: str, page: int | None, hits_per_page: int | None, locale: str
+) -> MeilisearchResponse[AppsIndex]:
+    prefix = ECOSYSTEM_RUNTIME_PREFIXES.get(ecosystem)
+    if not prefix:
+        return MeilisearchResponse[AppsIndex].model_validate(
+            {
+                "hits": [],
+                "query": "",
+                "processingTimeMs": 0,
+                "hitsPerPage": hits_per_page or 250,
+                "page": page or 1,
+                "totalPages": 0,
+                "totalHits": 0,
+            }
+        )
+
+    # Get all runtimes matching this ecosystem prefix
+    runtime_dist = get_runtime_list()
+    matching_runtimes = [k for k in runtime_dist.keys() if k.startswith(prefix)]
+
+    if not matching_runtimes:
+        return MeilisearchResponse[AppsIndex].model_validate(
+            {
+                "hits": [],
+                "query": "",
+                "processingTimeMs": 0,
+                "hitsPerPage": hits_per_page or 250,
+                "page": page or 1,
+                "totalPages": 0,
+                "totalHits": 0,
+            }
+        )
+
+    runtime_filter = (
+        "runtime IN ["
+        + ", ".join(
+            f"'{r.replace(chr(39), chr(92) + chr(39))}'" for r in matching_runtimes
+        )
+        + "]"
+    )
+
+    return _translate_name_and_summary(
+        locale,
+        MeilisearchResponse[AppsIndex].model_validate(
+            client.index("apps").search(
+                "",
+                {
+                    "filter": [
+                        runtime_filter,
+                        "type IN [console-application, desktop-application]",
+                        "NOT icon IS NULL",
+                    ],
+                    "sort": ["installs_last_month:desc"],
+                    "hitsPerPage": hits_per_page or 250,
+                    "page": page or 1,
+                },
+            ),
+        ),
+    )
+
+
 class DevelopersResponse(BaseModel):
     developers: list[str]
     total: int

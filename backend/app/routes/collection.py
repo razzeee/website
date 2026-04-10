@@ -223,6 +223,57 @@ def get_developer(
 
 
 @router.get(
+    "/ecosystem",
+    response_model=list[search.EcosystemInfo],
+    responses={
+        200: {"description": "List of available ecosystems with app counts"},
+    },
+)
+@cached(ttl=3600)
+async def get_ecosystems(
+    response: Response = Response(),
+) -> list[search.EcosystemInfo]:
+    """
+    Get a list of available ecosystems (GNOME, KDE, etc.) with app counts.
+    """
+    return search.get_ecosystems()
+
+
+@router.get(
+    "/ecosystem/{ecosystem}",
+    response_model=search.MeilisearchResponse[search.AppsIndex],
+    responses={
+        200: {"description": "Apps in the specified ecosystem"},
+        400: {"description": "Invalid pagination parameters"},
+    },
+)
+@cached(ttl=300)
+async def get_ecosystem(
+    ecosystem: str,
+    page: int | None = None,
+    per_page: int | None = None,
+    locale: str = "en",
+    response: Response = Response(),
+) -> search.MeilisearchResponse[search.AppsIndex]:
+    """
+    Get applications belonging to a specific ecosystem (e.g., gnome, kde).
+    """
+    if (page is None and per_page is not None) or (
+        page is not None and per_page is None
+    ):
+        raise HTTPException(
+            status_code=400,
+        )
+
+    if page is not None and page < 0:
+        raise HTTPException(
+            status_code=400,
+        )
+
+    return search.get_by_ecosystem(ecosystem, page, per_page, locale)
+
+
+@router.get(
     "/recently-updated",
     response_model=search.MeilisearchResponse[search.AppsIndex],
     responses={

@@ -17,9 +17,11 @@ import {
   MainCategory,
   MeilisearchResponseAppsIndex,
 } from "../../src/codegen"
+import { EcosystemInfo } from "../../src/codegen/model/ecosystemInfo"
 import { ApplicationSectionGradient } from "../../src/components/application/ApplicationSectionGradient"
 import { GameControllersLogo } from "../../src/components/GameControllersLogo"
 import { ApplicationSectionGradientMultiToggle } from "../../src/components/application/ApplicationSectionGradientMultiToggle"
+import { YearInReviewBanner } from "../../src/components/YearInReviewBanner"
 import type { JSX } from "react"
 import { Link } from "src/i18n/navigation"
 import { useSearchParams } from "next/navigation"
@@ -43,6 +45,7 @@ interface HomeClientProps {
   emulators: MeilisearchResponseAppsIndex
   gameLaunchers: MeilisearchResponseAppsIndex
   gameTools: MeilisearchResponseAppsIndex
+  ecosystems: EcosystemInfo[]
 }
 
 function MobileSection({ mobile }: { mobile: MeilisearchResponseAppsIndex }) {
@@ -108,6 +111,62 @@ function GameSection({
       description={t("game-section-description")}
       logo={<GameControllersLogo />}
     />
+  )
+}
+
+const ECOSYSTEM_GRADIENTS: Record<string, string> = {
+  gnome:
+    "from-[#4a90d9]/15 to-[#1c71d8]/10 dark:from-[#1c71d8]/25 dark:to-[#1a5fb4]/20",
+  kde: "from-[#1d99f3]/15 to-[#3daee9]/10 dark:from-[#1d99f3]/25 dark:to-[#3daee9]/20",
+  elementary:
+    "from-[#64baff]/15 to-[#7c3aed]/10 dark:from-[#3689e6]/25 dark:to-[#7c3aed]/20",
+  freedesktop:
+    "from-[#6b7280]/15 to-[#4b5563]/10 dark:from-[#6b7280]/20 dark:to-[#4b5563]/15",
+}
+
+function EcosystemSection({ ecosystems }: { ecosystems: EcosystemInfo[] }) {
+  const t = useTranslations()
+
+  if (ecosystems.length === 0) return null
+
+  return (
+    <div>
+      <header className="mb-4 flex max-w-full flex-row content-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">
+            {t("browse-by-ecosystem")}
+          </h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            {t("ecosystem-description")}
+          </p>
+        </div>
+      </header>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {ecosystems.map((eco) => (
+          <Link
+            key={eco.id}
+            href={`/apps/collection/ecosystem/${eco.id}/1`}
+            className={clsx(
+              "group relative flex flex-col items-start justify-between",
+              "rounded-xl p-5 min-h-[120px]",
+              "bg-gradient-to-br",
+              ECOSYSTEM_GRADIENTS[eco.id] ?? ECOSYSTEM_GRADIENTS.freedesktop,
+              "border border-flathub-gray-x11/20 dark:border-flathub-sonic-silver/20",
+              "transition-all duration-200",
+              "hover:shadow-md hover:scale-[1.02]",
+              "active:scale-[0.98]",
+            )}
+          >
+            <span className="text-xl font-bold tracking-tight">
+              {t(`ecosystem-${eco.id}` as any)}
+            </span>
+            <span className="text-sm text-muted-foreground mt-auto">
+              {t("ecosystem-app-count", { count: eco.app_count })}
+            </span>
+          </Link>
+        ))}
+      </div>
+    </div>
   )
 }
 
@@ -239,6 +298,7 @@ function HomeClient({
   emulators,
   gameLaunchers,
   gameTools,
+  ecosystems,
 }: HomeClientProps): JSX.Element {
   const t = useTranslations()
 
@@ -278,6 +338,7 @@ function HomeClient({
 
   return (
     <div className="max-w-11/12 mx-auto my-0 mt-4 w-11/12 space-y-10 2xl:w-[1400px] 2xl:max-w-[1400px]">
+      <YearInReviewBanner />
       <div className="space-y-4">
         {heroBannerData.length > 0 && (
           <HeroBanner heroBannerData={heroBannerData} aboveTheFold={true} />
@@ -344,6 +405,8 @@ function HomeClient({
       </div>
 
       <TopSection topApps={topAppsData} />
+
+      {ecosystems.length > 0 && <EcosystemSection ecosystems={ecosystems} />}
 
       <CategorySection
         topAppsByCategory={topAppsByCategory}
