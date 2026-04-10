@@ -8,6 +8,7 @@ import {
 import { YearInReview } from "../../../../src/components/application/YearInReview"
 import { Link } from "src/i18n/navigation"
 import clsx from "clsx"
+import { YearInReviewPreviewClient } from "./year-in-review-preview-client"
 
 const MIN_YEAR = 2018
 
@@ -24,8 +25,12 @@ function getMaxAvailableYear(): number {
 
 export async function generateStaticParams() {
   const maxYear = getMaxAvailableYear()
+  const now = new Date()
+  const currentYear = now.getFullYear()
+  // Always include the current year so admins can access it before December 15
+  const topYear = Math.max(maxYear, currentYear)
   const years: { year: string }[] = []
-  for (let year = maxYear; year >= maxYear - 5 && year >= MIN_YEAR; year--) {
+  for (let year = topYear; year >= topYear - 5 && year >= MIN_YEAR; year--) {
     years.push({ year: year.toString() })
   }
   return years
@@ -86,8 +91,25 @@ export default async function YearInReviewPage({
   const year = parseInt(yearParam, 10)
   const maxYear = getMaxAvailableYear()
 
-  if (isNaN(year) || year < MIN_YEAR || year > maxYear) {
+  if (isNaN(year) || year < MIN_YEAR) {
     notFound()
+  }
+
+  // Current year before December 15: only admins can access it.
+  // Render a client component that checks permissions and fetches data
+  // with credentials, since server-side rendering cannot forward cookies.
+  if (year > maxYear) {
+    const availableYears: number[] = []
+    for (let y = year; y >= MIN_YEAR; y--) {
+      availableYears.push(y)
+    }
+    return (
+      <YearInReviewPreviewClient
+        year={year}
+        locale={locale}
+        availableYears={availableYears}
+      />
+    )
   }
 
   let yearInReviewData: YearInReviewResult | null = null
