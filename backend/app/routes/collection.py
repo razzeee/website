@@ -223,6 +223,27 @@ def get_developer(
 
 
 @router.get(
+    "/developer/{developer:path}/summary",
+    response_model=search.DeveloperSummary,
+    responses={
+        200: {"description": "Summary of a developer's presence on Flathub"},
+    },
+)
+@cached(ttl=3600)
+async def get_developer_summary(
+    developer: str,
+    response: Response = Response(),
+) -> search.DeveloperSummary:
+    """
+    Get aggregated summary data for a specific developer.
+
+    Returns total app count, total installs, verification status,
+    and categories published in.
+    """
+    return search.get_developer_summary(developer)
+
+
+@router.get(
     "/recently-updated",
     response_model=search.MeilisearchResponse[search.AppsIndex],
     responses={

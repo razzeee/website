@@ -1,5 +1,8 @@
 import { notFound } from "next/navigation"
-import { getDeveloperCollectionDeveloperDeveloperGet } from "../../../../../../../src/codegen"
+import {
+  getDeveloperCollectionDeveloperDeveloperGet,
+  getDeveloperSummaryCollectionDeveloperDeveloperSummaryGet,
+} from "../../../../../../../src/codegen"
 import { Metadata } from "next"
 import DeveloperCollectionClient from "./developer-collection-client"
 import { getTranslations, setRequestLocale } from "next-intl/server"
@@ -20,12 +23,25 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { locale, developer } = await params
+  const { locale, developer, page } = await params
   const t = await getTranslations({ locale })
   const developerDecoded = decodeURIComponent(developer)
 
+  let description: string | undefined
+  try {
+    const summary =
+      await getDeveloperSummaryCollectionDeveloperDeveloperSummaryGet(developer)
+    description = `${summary.data.total_apps} apps on Flathub with ${summary.data.total_installs.toLocaleString("en")} installs last month`
+  } catch {
+    // Summary may not be available
+  }
+
   return {
     title: t("apps-by-developer", { developer: developerDecoded }),
+    description,
+    alternates: {
+      canonical: `${process.env.NEXT_PUBLIC_SITE_BASE_URI}/${locale}/apps/collection/developer/${developer}/${page}`,
+    },
   }
 }
 
@@ -42,15 +58,20 @@ export default async function DeveloperCollectionPage({ params }: Props) {
   }
 
   const developerDecoded = decodeURIComponent(developer)
-  const response = await getDeveloperCollectionDeveloperDeveloperGet(
-    developer,
-    {
+
+  const [response, summaryResponse] = await Promise.all([
+    getDeveloperCollectionDeveloperDeveloperGet(developer, {
       page: pageNum,
       per_page: 30,
       locale,
-    },
-  )
+    }),
+    getDeveloperSummaryCollectionDeveloperDeveloperSummaryGet(
+      developer,
+    ).catch(() => null),
+  ])
+
   const applications = response.data
+  const summary = summaryResponse?.data ?? null
 
   if (applications.page > applications.totalPages) {
     notFound()
@@ -60,6 +81,7 @@ export default async function DeveloperCollectionPage({ params }: Props) {
     <DeveloperCollectionClient
       applications={applications}
       developer={developerDecoded}
+      summary={summary}
     />
   )
 }
