@@ -415,6 +415,92 @@ const SearchFilterArches = ({
     </div>
   )
 }
+const controlLabelMap: Record<string, string> = {
+  keyboard: "control-keyboard",
+  pointing: "control-pointing",
+  touch: "control-touch",
+  gamepad: "control-gamepad",
+  "tv-remote": "control-tv-remote",
+  tablet: "control-tablet",
+  console: "control-console",
+  voice: "control-voice",
+  vision: "control-vision",
+}
+
+const SearchFilterControls = ({
+  results,
+  selectedFilters,
+  setSelectedFilters,
+}: {
+  results: UseMutationResult<
+    AxiosResponse<MeilisearchResponseAppsIndex, any>,
+    unknown
+  >
+  selectedFilters: {
+    filterType: string
+    value: string
+  }[]
+  setSelectedFilters
+}) => {
+  const t = useTranslations()
+
+  return (
+    <div className="flex flex-col gap-2">
+      <h2 className="text-lg font-bold">{t("input-controls")}</h2>
+      {results.isPending &&
+        [...new Array(4)].map((a, i) => {
+          return (
+            <div key={i} className={"blur-xs flex flex-col gap-2"}>
+              <FilterFacette
+                label={"Loading..."}
+                count={0}
+                checked={false}
+                onCheckedChange={() => {}}
+              />
+            </div>
+          )
+        })}
+
+      {results.isSuccess &&
+        results?.data.data.facetDistribution?.controls &&
+        Object.keys(results?.data.data.facetDistribution?.controls).map(
+          (control) => (
+            <FilterFacette
+              key={control}
+              label={t(controlLabelMap[control] ?? control)}
+              count={results?.data.data.facetDistribution?.controls[control]}
+              checked={selectedFilters.some(
+                (filter) =>
+                  filter.filterType === "controls" && filter.value === control,
+              )}
+              onCheckedChange={(e) => {
+                if (e) {
+                  setSelectedFilters([
+                    ...selectedFilters,
+                    {
+                      filterType: "controls",
+                      value: control,
+                    },
+                  ])
+                } else {
+                  setSelectedFilters(
+                    selectedFilters.filter(
+                      (filter) =>
+                        !(
+                          filter.filterType === "controls" &&
+                          filter.value === control
+                        ),
+                    ),
+                  )
+                }
+              }}
+            />
+          ),
+        )}
+    </div>
+  )
+}
+
 export const SearchFilters = ({
   results,
   selectedFilters,
@@ -453,6 +539,11 @@ export const SearchFilters = ({
         setSelectedFilters={setSelectedFilters}
       />
       <SearchFilterArches
+        results={results}
+        selectedFilters={selectedFilters}
+        setSelectedFilters={setSelectedFilters}
+      />
+      <SearchFilterControls
         results={results}
         selectedFilters={selectedFilters}
         setSelectedFilters={setSelectedFilters}
