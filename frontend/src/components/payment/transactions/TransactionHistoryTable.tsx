@@ -53,8 +53,12 @@ export const TransactionHistoryTable = ({
     : transactions.slice(page * perPage, page * perPage + perPage)
 
   return (
-    <div className="flex flex-col gap-3 w-full lg:max-w-6xl">
-      {transactions.length === 0 && <p>{t("no-transactions")}</p>}
+    <div className="flex flex-col gap-3 w-full">
+      {transactions.length === 0 && (
+        <p className="text-flathub-sonic-silver dark:text-flathub-spanish-gray">
+          {t("no-transactions")}
+        </p>
+      )}
 
       {transactions.length > 0 && (
         <>
@@ -64,7 +68,7 @@ export const TransactionHistoryTable = ({
                 <TableHead>{t("type")}</TableHead>
                 <TableHead>{t("created")}</TableHead>
                 <TableHead>{t("status")}</TableHead>
-                <TableHead className="text-right">{t("amount")}</TableHead>
+                <TableHead className="text-end">{t("amount")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -81,7 +85,7 @@ export const TransactionHistoryTable = ({
                       {format(new UTCDate(entry.created * 1000), "Pp")}
                     </TableCell>
                     <TableCell>{t(`status-${entry.status}`)}</TableCell>
-                    <TableCell className="text-right flex justify-end gap-1 items-center">
+                    <TableCell className="text-end flex justify-end gap-1 items-center">
                       {needsAttention && (
                         <ExclamationTriangleIcon className="text-red-500 size-4" />
                       )}
