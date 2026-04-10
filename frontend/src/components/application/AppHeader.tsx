@@ -14,7 +14,7 @@ import {
   VendingSetup,
 } from "src/codegen"
 import { Button } from "@/components/ui/button"
-import { Bookmark, BookmarkCheck, Loader2 } from "lucide-react"
+import { Star, Loader2 } from "lucide-react"
 import clsx from "clsx"
 import { Link, useRouter } from "src/i18n/navigation"
 
@@ -83,7 +83,11 @@ const FavoriteButton = ({ appId }: { appId: string }) => {
             )
       }}
     >
-      {isFavoriteQuery.data.data ? <BookmarkCheck /> : <Bookmark />}
+      {isFavoriteQuery.data.data ? (
+        <Star className="fill-current" />
+      ) : (
+        <Star />
+      )}
     </Button>
   )
 }
