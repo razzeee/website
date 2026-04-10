@@ -36,10 +36,10 @@
     @apply mb-4;
     @apply text-flathub-dark-gunmetal;
     @apply leading-7;
+  }
 
-    @media (prefers-color-scheme: dark) {
-      @apply text-flathub-spanish-gray;
-    }
+  .dark p {
+    @apply text-flathub-gray-x11;
   }
 
   main {
@@ -65,10 +65,10 @@
 
   a {
     @apply text-flathub-celestial-blue-dark;
+  }
 
-    @media (prefers-color-scheme: dark) {
-      @apply text-flathub-celestial-blue;
-    }
+  .dark a {
+    @apply text-flathub-celestial-blue;
   }
 
   mark {
@@ -181,7 +181,7 @@
   --secondary-foreground: var(--flathub-lotion);
 
   --muted: var(--flathub-arsenic);
-  --muted-foreground: var(--flathub-spanish-gray);
+  --muted-foreground: var(--flathub-gray-x11);
 
   --accent: var(--flathub-granite-gray);
   --accent-foreground: var(--flathub-lotion);
@@ -199,19 +199,18 @@
   --color-primary: var(--flathub-celestial-blue);
 
   /* // for chart colors */
-  :root {
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-  }
+  --chart-1: 220 70% 50%;
+  --chart-2: 160 60% 45%;
+  --chart-3: 30 80% 55%;
+  --chart-4: 280 65% 60%;
+  --chart-5: 340 75% 55%;
+}
 
-  .dark {
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-  }
+/* // chart colors light mode */
+:root {
+  --chart-1: 12 76% 61%;
+  --chart-2: 173 58% 39%;
+  --chart-3: 197 37% 24%;
+  --chart-4: 43 74% 66%;
+  --chart-5: 27 87% 67%;
 }
