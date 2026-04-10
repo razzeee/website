@@ -136,6 +136,7 @@ def add_to_search(app_id: str, app: dict, apps_locale: dict) -> dict:
         ),
         "runtime": app.get("bundle", {}).get("runtime", None),
         "controls": app.get("controls", []),
+        "app_languages": app.get("app_languages", []),
     }
 
 

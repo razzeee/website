@@ -130,6 +130,26 @@ def appstream2dict(appstream_url=None) -> dict[str, dict]:
         app["isMobileFriendly"] = isMobileFriendly and hasTouch
         app["controls"] = sorted(controls_set) if controls_set else []
 
+        # Extract supported languages from <languages> element
+        languages_elem = component.find("languages")
+        app_languages = set()
+        if languages_elem is not None:
+            for lang_elem in languages_elem.findall("lang"):
+                if lang_elem.text:
+                    lang_code = lang_elem.text.strip()
+                    percentage = lang_elem.attrib.get("percentage", "0")
+                    try:
+                        pct = int(percentage)
+                    except ValueError:
+                        pct = 0
+                    # Only include languages with >= 50% translation coverage
+                    if pct >= 50:
+                        # Normalize: keep only the base language code for filtering
+                        base_lang = lang_code.split("_")[0].split("-")[0].lower()
+                        app_languages.add(base_lang)
+            component.remove(languages_elem)
+        app["app_languages"] = sorted(app_languages) if app_languages else []
+
         descriptions = component.findall("description")
         if len(descriptions):
             for desc in descriptions:

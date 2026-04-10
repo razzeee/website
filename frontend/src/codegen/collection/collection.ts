@@ -25,6 +25,7 @@ import qs from "qs"
 import type {
   AppSearchDevelopersResponse,
   DeveloperSummary,
+  EcosystemInfo,
   GetCategoryCollectionCategoryCategoryGetParams,
   GetDeveloperCollectionDeveloperDeveloperGetParams,
   GetDevelopersCollectionDeveloperGetParams,
@@ -1386,6 +1387,39 @@ export const getDeveloperSummaryCollectionDeveloperDeveloperSummaryGet = (
 ): Promise<AxiosResponse<DeveloperSummary>> => {
   return axios.get(`/collection/developer/${developer}/summary`, {
     ...options,
+  })
+}
+
+/**
+ * Get a list of available ecosystems with app counts.
+ * @summary Get Ecosystems
+ */
+export const getEcosystemsCollectionEcosystemGet = (
+  options?: AxiosRequestConfig,
+): Promise<AxiosResponse<EcosystemInfo[]>> => {
+  return axios.get(`/collection/ecosystem`, options)
+}
+
+export interface GetEcosystemCollectionEcosystemEcosystemGetParams {
+  page?: number | null
+  per_page?: number | null
+  locale?: string
+}
+
+/**
+ * Get applications belonging to a specific ecosystem.
+ * @summary Get Ecosystem
+ */
+export const getEcosystemCollectionEcosystemEcosystemGet = (
+  ecosystem: string,
+  params?: GetEcosystemCollectionEcosystemEcosystemGetParams,
+  options?: AxiosRequestConfig,
+): Promise<AxiosResponse<MeilisearchResponseAppsIndex>> => {
+  return axios.get(`/collection/ecosystem/${ecosystem}`, {
+    ...options,
+    params: { ...params, ...options?.params },
+    paramsSerializer: (params) =>
+      qs.stringify(params, { arrayFormat: "repeat" }),
   })
 }
 

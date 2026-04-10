@@ -3,6 +3,7 @@ import { CheckedState } from "@radix-ui/react-checkbox"
 import { UseMutationResult } from "@tanstack/react-query"
 import { AxiosResponse } from "axios"
 import { useTranslations } from "next-intl"
+import { useMemo, useState } from "react"
 import { MeilisearchResponseAppsIndex } from "src/codegen"
 import { categoryToName, stringToCategory } from "src/types/Category"
 
@@ -501,6 +502,128 @@ const SearchFilterControls = ({
   )
 }
 
+function getLanguageDisplayName(code: string, locale: string): string {
+  try {
+    const displayNames = new Intl.DisplayNames([locale, "en"], {
+      type: "language",
+    })
+    const name = displayNames.of(code)
+    return name && name !== code ? name : code.toUpperCase()
+  } catch {
+    return code.toUpperCase()
+  }
+}
+
+const SearchFilterLanguages = ({
+  results,
+  selectedFilters,
+  setSelectedFilters,
+}: {
+  results: UseMutationResult<
+    AxiosResponse<MeilisearchResponseAppsIndex, any>,
+    unknown
+  >
+  selectedFilters: {
+    filterType: string
+    value: string
+  }[]
+  setSelectedFilters
+}) => {
+  const t = useTranslations()
+  const [searchTerm, setSearchTerm] = useState("")
+
+  const languageFacets = results?.data?.data?.facetDistribution?.app_languages
+
+  // Sort languages by count descending; show selected first
+  const sortedLanguages = useMemo(() => {
+    if (!languageFacets) return []
+    return Object.entries(languageFacets)
+      .sort(([, countA], [, countB]) => countB - countA)
+  }, [languageFacets])
+
+  const filteredLanguages = useMemo(() => {
+    if (!searchTerm.trim()) return sortedLanguages
+    const term = searchTerm.toLowerCase().trim()
+    return sortedLanguages.filter(([code]) => {
+      const displayName = getLanguageDisplayName(code, "en")
+      return (
+        code.toLowerCase().includes(term) ||
+        displayName.toLowerCase().includes(term)
+      )
+    })
+  }, [sortedLanguages, searchTerm])
+
+  if (results.isSuccess && (!languageFacets || Object.keys(languageFacets).length === 0)) {
+    return null
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <h2 className="text-lg font-bold">{t("app-languages")}</h2>
+      {results.isPending &&
+        [...new Array(4)].map((a, i) => {
+          return (
+            <div key={i} className={"blur-xs flex flex-col gap-2"}>
+              <FilterFacette
+                label={"Loading..."}
+                count={0}
+                checked={false}
+                onCheckedChange={() => {}}
+              />
+            </div>
+          )
+        })}
+
+      {results.isSuccess && sortedLanguages.length > 6 && (
+        <input
+          type="text"
+          placeholder={t("search-apps")}
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="rounded-md border border-flathub-gray-x11/30 bg-transparent px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+        />
+      )}
+
+      <div className={sortedLanguages.length > 6 ? "max-h-48 overflow-y-auto" : ""}>
+        {results.isSuccess &&
+          filteredLanguages.map(([lang, count]) => (
+            <FilterFacette
+              key={lang}
+              label={getLanguageDisplayName(lang, "en")}
+              count={count}
+              checked={selectedFilters.some(
+                (filter) =>
+                  filter.filterType === "app_languages" &&
+                  filter.value === lang,
+              )}
+              onCheckedChange={(e) => {
+                if (e) {
+                  setSelectedFilters([
+                    ...selectedFilters,
+                    {
+                      filterType: "app_languages",
+                      value: lang,
+                    },
+                  ])
+                } else {
+                  setSelectedFilters(
+                    selectedFilters.filter(
+                      (filter) =>
+                        !(
+                          filter.filterType === "app_languages" &&
+                          filter.value === lang
+                        ),
+                    ),
+                  )
+                }
+              }}
+            />
+          ))}
+      </div>
+    </div>
+  )
+}
+
 export const SearchFilters = ({
   results,
   selectedFilters,
@@ -544,6 +667,11 @@ export const SearchFilters = ({
         setSelectedFilters={setSelectedFilters}
       />
       <SearchFilterControls
+        results={results}
+        selectedFilters={selectedFilters}
+        setSelectedFilters={setSelectedFilters}
+      />
+      <SearchFilterLanguages
         results={results}
         selectedFilters={selectedFilters}
         setSelectedFilters={setSelectedFilters}

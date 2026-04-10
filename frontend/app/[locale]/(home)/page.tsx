@@ -12,6 +12,7 @@ import {
   AppSchemasSortBy,
   DesktopAppstream,
 } from "../../../src/codegen"
+import { getEcosystemsCollectionEcosystemGet } from "../../../src/codegen/collection/collection"
 import { Metadata } from "next"
 import { APPS_IN_PREVIEW_COUNT } from "../../../src/env"
 import {
@@ -237,6 +238,15 @@ export default async function HomePage({
   const gameData = await getGameData(locale)
   const [games, emulators, gameLaunchers, gameTools] = gameData
 
+  // Fetch ecosystem data for the browse-by-ecosystem section
+  let ecosystems: { id: string; name: string; app_count: number }[] = []
+  try {
+    const ecosystemResponse = await getEcosystemsCollectionEcosystemGet()
+    ecosystems = ecosystemResponse.data
+  } catch {
+    // Ecosystems section is non-critical; skip if API unavailable
+  }
+
   return (
     <HomeClient
       recentlyUpdated={recentlyUpdated}
@@ -251,6 +261,7 @@ export default async function HomePage({
       emulators={emulators}
       gameLaunchers={gameLaunchers}
       gameTools={gameTools}
+      ecosystems={ecosystems}
     />
   )
 }
