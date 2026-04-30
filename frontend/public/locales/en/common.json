@@ -775,5 +775,15 @@
     "none-language": "Contains no profanity or vulgar language",
     "none-social": "No social features",
     "none-money": "Contains no advertising or monetary transactions"
-  }
+  },
+  "recent-searches": "Recent searches",
+  "clear-recent-searches": "Clear recent searches",
+  "trending-now": "Trending now",
+  "dismiss": "Dismiss",
+  "new-this-week": "New this week",
+  "more-new-apps": "More new apps",
+  "added-on-date": "Added {date}",
+  "explore-categories": "Explore by category",
+  "apps-in-category": "{count} apps",
+  "app-screenshots": "App screenshots"
 }

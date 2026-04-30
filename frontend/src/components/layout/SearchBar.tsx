@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState, useRef, useEffect } from "react"
+import { useMemo, useState, useRef, useEffect, useCallback } from "react"
 import { useRouter } from "../../i18n/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { SiteLinksSearchBoxJsonLd } from "next-seo"
@@ -11,7 +11,70 @@ import type { AppsIndex } from "../../codegen"
 import { mapAppsIndexToAppstreamListItem } from "../../meilisearch"
 import LogoImage from "../LogoImage"
 import { Link } from "../../i18n/navigation"
-import { ArrowRight, ChevronRight, Search, XIcon } from "lucide-react"
+import { ArrowRight, ChevronRight, Clock, Search, X, XIcon } from "lucide-react"
+import { categoryToName } from "../../types/Category"
+import { MainCategory } from "../../codegen"
+import { AnimatePresence, motion } from "framer-motion"
+
+const RECENT_SEARCHES_KEY = "flathub_recent_searches"
+const MAX_RECENT_SEARCHES = 5
+
+function getRecentSearches(): string[] {
+  if (typeof window === "undefined") return []
+  try {
+    const stored = localStorage.getItem(RECENT_SEARCHES_KEY)
+    return stored ? JSON.parse(stored) : []
+  } catch {
+    return []
+  }
+}
+
+function addRecentSearch(query: string) {
+  if (typeof window === "undefined" || !query.trim()) return
+  try {
+    const existing = getRecentSearches()
+    const updated = [
+      query.trim(),
+      ...existing.filter((q) => q !== query.trim()),
+    ].slice(0, MAX_RECENT_SEARCHES)
+    localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updated))
+  } catch {
+    // ignore
+  }
+}
+
+function clearRecentSearches() {
+  if (typeof window === "undefined") return
+  try {
+    localStorage.removeItem(RECENT_SEARCHES_KEY)
+  } catch {
+    // ignore
+  }
+}
+
+function getCategoryLabel(hit: AppsIndex, t: ReturnType<typeof useTranslations>): string | null {
+  const cats = hit.main_categories
+  if (!cats) return null
+  const first = Array.isArray(cats) ? cats[0] : cats
+  if (!first) return null
+  try {
+    return categoryToName(first as MainCategory, t)
+  } catch {
+    return null
+  }
+}
+
+const listVariants = {
+  hidden: {},
+  visible: {
+    transition: { staggerChildren: 0.04 },
+  },
+}
+
+const itemVariants = {
+  hidden: { opacity: 0, y: -4 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.15 } },
+}
 
 interface SearchBarProps {
   className?: string
@@ -27,6 +90,8 @@ const SearchBar = ({ className }: SearchBarProps) => {
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(-1)
+  const [recentSearches, setRecentSearches] = useState<string[]>([])
+  const [isFocused, setIsFocused] = useState(false)
   const searchRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -79,6 +144,22 @@ const SearchBar = ({ className }: SearchBarProps) => {
     return client.searchClient
   }, [])
 
+  // Load recent searches on focus
+  const handleFocus = useCallback(() => {
+    setIsFocused(true)
+    setRecentSearches(getRecentSearches())
+    if (!query.trim()) {
+      const recents = getRecentSearches()
+      if (recents.length > 0) {
+        setIsOpen(true)
+      }
+    }
+  }, [query])
+
+  const handleBlur = useCallback(() => {
+    setIsFocused(false)
+  }, [])
+
   // Handle clicks outside to close dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -87,6 +168,7 @@ const SearchBar = ({ className }: SearchBarProps) => {
         !searchRef.current.contains(event.target as Node)
       ) {
         setIsOpen(false)
+        setIsFocused(false)
       }
     }
 
@@ -164,7 +246,13 @@ const SearchBar = ({ className }: SearchBarProps) => {
   useEffect(() => {
     if (!searchClient || !query.trim()) {
       setResults([])
-      setIsOpen(false)
+      if (!query.trim() && isFocused) {
+        const recents = getRecentSearches()
+        setRecentSearches(recents)
+        setIsOpen(recents.length > 0)
+      } else {
+        setIsOpen(false)
+      }
       return
     }
 
@@ -230,12 +318,30 @@ const SearchBar = ({ className }: SearchBarProps) => {
     e.preventDefault()
     const disallowedQueries = [".", ".."]
     if (!disallowedQueries.includes(query)) {
+      addRecentSearch(query)
       const queryEncoded = encodeURIComponent(query).replace(/\./g, "%2E")
       router.push(`/apps/search${queryEncoded ? `?q=${queryEncoded}` : ""}`)
       setIsOpen(false)
       inputRef.current?.blur()
     }
   }
+
+  const handleRecentSearchClick = (term: string) => {
+    setQuery(term)
+    setIsOpen(false)
+    const queryEncoded = encodeURIComponent(term).replace(/\./g, "%2E")
+    router.push(`/apps/search?q=${queryEncoded}`)
+  }
+
+  const handleClearRecents = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    clearRecentSearches()
+    setRecentSearches([])
+    setIsOpen(false)
+  }
+
+  const showRecentSearches = !query.trim() && recentSearches.length > 0 && isFocused
+  const showResults = !!query.trim() && (isLoading || results.length > 0)
 
   return (
     <>
@@ -271,6 +377,8 @@ const SearchBar = ({ className }: SearchBarProps) => {
               name="q"
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
               value={query}
               autoComplete="off"
               role="combobox"
@@ -307,7 +415,7 @@ const SearchBar = ({ className }: SearchBarProps) => {
         </div>
 
         {/* Dropdown results */}
-        {isOpen && (query.trim() || isLoading) && (
+        {isOpen && (showRecentSearches || showResults) && (
           <>
             {/* Mobile overlay backdrop */}
             {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
@@ -362,6 +470,45 @@ const SearchBar = ({ className }: SearchBarProps) => {
                 </div>
               </div>
 
+              {/* Recent searches */}
+              {showRecentSearches && !query.trim() && (
+                <div className="py-2">
+                  <div className="flex items-center justify-between px-4 pb-1 pt-2">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-flathub-sonic-silver dark:text-flathub-spanish-gray">
+                      {t("recent-searches")}
+                    </span>
+                    <button
+                      onClick={handleClearRecents}
+                      className="text-xs text-flathub-celestial-blue hover:underline flex items-center gap-1"
+                      aria-label={t("clear-recent-searches")}
+                    >
+                      <X className="size-3" />
+                      {t("clear-recent-searches")}
+                    </button>
+                  </div>
+                  <motion.ul
+                    variants={listVariants}
+                    initial="hidden"
+                    animate="visible"
+                  >
+                    {recentSearches.map((term) => (
+                      <motion.li key={term} variants={itemVariants}>
+                        <button
+                          className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-flathub-gainsborow/50 dark:hover:bg-flathub-arsenic"
+                          onClick={() => handleRecentSearchClick(term)}
+                        >
+                          <Clock className="size-4 shrink-0 text-flathub-sonic-silver dark:text-flathub-spanish-gray" />
+                          <span className="flex-1 truncate text-sm text-flathub-dark-gunmetal dark:text-flathub-lotion">
+                            {term}
+                          </span>
+                          <ArrowRight className="size-4 shrink-0 text-flathub-sonic-silver rtl:rotate-180" />
+                        </button>
+                      </motion.li>
+                    ))}
+                  </motion.ul>
+                </div>
+              )}
+
               {isLoading && (
                 <div className="px-4 py-8 text-center text-sm text-flathub-sonic-silver">
                   {t("loading")}
@@ -376,63 +523,86 @@ const SearchBar = ({ className }: SearchBarProps) => {
 
               {!isLoading && results.length > 0 && (
                 <div className="py-2">
-                  {results.map((hit, index) => {
-                    const app = mapAppsIndexToAppstreamListItem(hit)
-                    return (
-                      <Link
-                        key={app.id}
-                        id={`search-result-${index}`}
-                        href={`/apps/${app.id}`}
-                        role="option"
-                        aria-selected={selectedIndex === index}
-                        className={clsx(
-                          "flex items-center gap-3 px-4 py-3 transition",
-                          selectedIndex === index
-                            ? "bg-flathub-gainsborow/70 dark:bg-flathub-arsenic/70"
-                            : "hover:bg-flathub-gainsborow/50 dark:hover:bg-flathub-arsenic",
-                        )}
-                        onClick={() => {
-                          // Track instant search result click
-                          trackEvent({
-                            category: "Search",
-                            action: "Instant Search Click",
-                            name: app.id,
-                          })
-                          setIsOpen(false)
-                          setQuery("")
-                          setSelectedIndex(-1)
-                        }}
-                      >
-                        <div className="flex-shrink-0">
-                          <LogoImage
-                            iconUrl={app.icon}
-                            appName={app.name}
-                            size={64}
-                          />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium text-flathub-dark-gunmetal dark:text-flathub-lotion truncate">
-                            {app.name}
-                          </div>
-                          <div className="text-xs text-flathub-sonic-silver dark:text-flathub-spanish-gray truncate">
-                            {app.summary}
-                          </div>
-                        </div>
-                        <div className="flex-shrink-0">
-                          <ChevronRight
-                            aria-hidden="true"
-                            className="size-6 text-flathub-sonic-silver rtl:rotate-180"
-                          />
-                        </div>
-                      </Link>
-                    )
-                  })}
+                  <AnimatePresence mode="wait">
+                    <motion.ul
+                      key={query}
+                      variants={listVariants}
+                      initial="hidden"
+                      animate="visible"
+                      role="presentation"
+                    >
+                      {results.map((hit, index) => {
+                        const app = mapAppsIndexToAppstreamListItem(hit)
+                        const categoryLabel = getCategoryLabel(hit, t)
+                        return (
+                          <motion.li
+                            key={app.id}
+                            variants={itemVariants}
+                            role="presentation"
+                          >
+                            <Link
+                              id={`search-result-${index}`}
+                              href={`/apps/${app.id}`}
+                              role="option"
+                              aria-selected={selectedIndex === index}
+                              className={clsx(
+                                "flex items-center gap-3 px-4 py-3 transition",
+                                selectedIndex === index
+                                  ? "bg-flathub-gainsborow/70 dark:bg-flathub-arsenic/70"
+                                  : "hover:bg-flathub-gainsborow/50 dark:hover:bg-flathub-arsenic",
+                              )}
+                              onClick={() => {
+                                addRecentSearch(query)
+                                trackEvent({
+                                  category: "Search",
+                                  action: "Instant Search Click",
+                                  name: app.id,
+                                })
+                                setIsOpen(false)
+                                setQuery("")
+                                setSelectedIndex(-1)
+                              }}
+                            >
+                              <div className="flex-shrink-0">
+                                <LogoImage
+                                  iconUrl={app.icon}
+                                  appName={app.name}
+                                  size={40}
+                                />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-medium text-flathub-dark-gunmetal dark:text-flathub-lotion truncate">
+                                    {app.name}
+                                  </span>
+                                  {categoryLabel && (
+                                    <span className="shrink-0 rounded-full bg-flathub-gainsborow/70 px-2 py-0.5 text-[10px] font-medium text-flathub-sonic-silver dark:bg-flathub-arsenic dark:text-flathub-spanish-gray">
+                                      {categoryLabel}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-xs text-flathub-sonic-silver dark:text-flathub-spanish-gray truncate">
+                                  {app.summary}
+                                </div>
+                              </div>
+                              <div className="flex-shrink-0">
+                                <ChevronRight
+                                  aria-hidden="true"
+                                  className="size-5 text-flathub-sonic-silver rtl:rotate-180"
+                                />
+                              </div>
+                            </Link>
+                          </motion.li>
+                        )
+                      })}
+                    </motion.ul>
+                  </AnimatePresence>
                   <div className="border-t border-flathub-gray-x11/50 dark:border-flathub-sonic-silver/20 mt-2 pt-2 px-4 pb-2">
                     <Link
                       href={`/apps/search?q=${encodeURIComponent(query)}`}
                       className="text-sm text-flathub-celestial-blue hover:underline flex items-center gap-1"
                       onClick={() => {
-                        // Track "see all results" click
+                        addRecentSearch(query)
                         trackEvent({
                           category: "Search",
                           action: "See All Results Click",
