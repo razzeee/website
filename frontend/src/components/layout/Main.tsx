@@ -5,6 +5,7 @@ import { useEffect } from "react"
 import { useMatomo } from "@mitresthen/matomo-tracker-react"
 import Header from "./Header"
 import Footer from "./Footer"
+import { TrendingRibbon } from "./TrendingRibbon"
 import { useLocale } from "next-intl"
 import { usePathname } from "src/i18n/navigation"
 
@@ -34,6 +35,7 @@ const Main = ({ children }: { children: React.ReactNode }) => {
       className={`flex min-h-screen flex-col bg-flathub-lotion dark:bg-flathub-dark-gunmetal`}
     >
       <Header />
+      <TrendingRibbon />
 
       <main className="pt-[68px]">{children}</main>
 
