@@ -24,6 +24,7 @@ import { YearInReviewBanner } from "../../src/components/YearInReviewBanner"
 import type { JSX } from "react"
 import { Link } from "src/i18n/navigation"
 import { useSearchParams } from "next/navigation"
+import { NewThisWeek } from "../../src/components/NewThisWeek"
 
 interface HomeClientProps {
   recentlyUpdated: MeilisearchResponseAppsIndex
@@ -346,6 +347,8 @@ function HomeClient({
       </div>
 
       <TopSection topApps={topAppsData} />
+
+      <NewThisWeek recentlyAdded={recentlyAdded} />
 
       <CategorySection
         topAppsByCategory={topAppsByCategory}
