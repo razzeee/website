@@ -25,6 +25,7 @@ import type { JSX } from "react"
 import { Link } from "src/i18n/navigation"
 import { useSearchParams } from "next/navigation"
 import { NewThisWeek } from "../../src/components/NewThisWeek"
+import { CategorySpotlight } from "../../src/components/CategorySpotlight"
 
 interface HomeClientProps {
   recentlyUpdated: MeilisearchResponseAppsIndex
@@ -349,6 +350,8 @@ function HomeClient({
       <TopSection topApps={topAppsData} />
 
       <NewThisWeek recentlyAdded={recentlyAdded} />
+
+      <CategorySpotlight topAppsByCategory={topAppsByCategory} />
 
       <CategorySection
         topAppsByCategory={topAppsByCategory}
