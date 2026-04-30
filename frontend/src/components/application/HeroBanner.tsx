@@ -107,6 +107,236 @@ export const HeroBanner = ({
           active: autoplay,
         }),
       ]}
+      className="overflow-hidden shadow-xl rounded-xl"
+      setApi={setApi}
+    >
+      <CarouselContent className="h-[320px] xl:h-[400px] ms-0">
+        {heroBannerData.map((data, i) => {
+          const fallbackColor = chooseBrandingColor(
+            data.appstream?.branding,
+            "dark",
+          )
+
+          const brandingColor = chooseBrandingColor(
+            data.appstream?.branding,
+            forceTheme ?? (resolvedTheme as "light" | "dark"),
+          )
+
+          const textColor = mounted
+            ? brandingColor && getContrastColor(brandingColor.value) === "black"
+              ? "text-flathub-dark-gunmetal"
+              : "text-flathub-lotion"
+            : "text-flathub-dark-gunmetal dark:text-flathub-lotion"
+
+          const bgColor =
+            (mounted
+              ? brandingColor && brandingColor.value
+              : fallbackColor && fallbackColor.value) ?? "#FF00DC"
+
+          const screenshotData = data.appstream.screenshots?.[0]
+            ? findBiggestScreenshotSize(data.appstream.screenshots[0])
+            : null
+
+          return (
+            <CarouselItem className="basis-full ps-0" key={data.appstream.id}>
+              <Link
+                href={`/apps/${data.appstream.id}`}
+                passHref
+                style={{ backgroundColor: bgColor }}
+                className={clsx(
+                  "relative flex min-w-0 items-center gap-4 p-4 py-0 duration-500",
+                  "hover:cursor-grab",
+                  "h-full overflow-hidden",
+                )}
+              >
+                {/* Cinematic blurred screenshot background */}
+                {screenshotData && screenshotData.src && (
+                  <div className="pointer-events-none absolute inset-0 z-0">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={screenshotData.src}
+                      alt=""
+                      aria-hidden="true"
+                      className="h-full w-full scale-110 object-cover opacity-20 blur-2xl transition-opacity duration-700"
+                      loading={aboveTheFold && i === 0 ? "eager" : "lazy"}
+                    />
+                    {/* Gradient overlay for depth */}
+                    <div
+                      className="absolute inset-0"
+                      style={{
+                        background: `linear-gradient(135deg, ${bgColor}ee 0%, ${bgColor}99 40%, ${bgColor}44 100%)`,
+                      }}
+                    />
+                  </div>
+                )}
+
+                {/* Content layer */}
+                <div className="relative z-10 flex justify-center flex-row w-full h-full gap-6 px-16">
+                  <div className="flex flex-col justify-center items-center lg:w-1/3 h-auto w-full">
+                    <div className="relative flex shrink-0 flex-wrap items-center justify-center drop-shadow-xl lg:h-[128px] lg:w-[128px]">
+                      <LogoImage
+                        priority={aboveTheFold && i === 0}
+                        iconUrl={data.appstream.icon}
+                        appName={data.appstream.name}
+                        loading="eager"
+                        quality={100}
+                        size={128}
+                        fetchPriority={
+                          aboveTheFold && i === 0 ? "high" : "auto"
+                        }
+                      />
+                    </div>
+                    <div className="flex pt-3">
+                      <span
+                        className={clsx(
+                          "truncate whitespace-nowrap text-2xl font-black drop-shadow-sm",
+                          textColor,
+                        )}
+                      >
+                        {data.appstream.name}
+                      </span>
+                    </div>
+                    <div
+                      className={clsx(
+                        "line-clamp-2 text-sm text-center drop-shadow-sm",
+                        textColor,
+                        "lg:line-clamp-3",
+                      )}
+                    >
+                      {data.appstream.summary}
+                    </div>
+                  </div>
+                  {data.appstream.screenshots?.[0] && (
+                    <Imgproxy
+                      pictureClassName="hidden w-2/3 xl:flex justify-center items-center overflow-hidden relative h-auto"
+                      {...findBiggestScreenshotSize(
+                        data.appstream.screenshots[0],
+                      )}
+                      alt={data.appstream.name}
+                      loading="eager"
+                      className={clsx(
+                        "absolute rounded-lg shadow-xl",
+                        data.app.isFullscreen ? "top-20" : "top-10 ",
+                      )}
+                      fetchPriority={aboveTheFold && i === 0 ? "high" : "auto"}
+                    />
+                  )}
+                </div>
+              </Link>
+            </CarouselItem>
+          )
+        })}
+      </CarouselContent>
+      <CarouselPrevious
+        className={clsx(
+          "text-flathub-black dark:text-flathub-white",
+          "hover:text-flathub-black dark:hover:text-flathub-white",
+          "hover:bg-flathub-black/10 dark:hover:bg-flathub-white/10",
+          "absolute start-4 top-1/2 size-11",
+          forceTheme && "hidden",
+        )}
+        variant="ghost"
+      />
+      <CarouselNext
+        className={clsx(
+          "text-flathub-black dark:text-flathub-white",
+          "hover:text-flathub-black dark:hover:text-flathub-white",
+          "hover:bg-flathub-black/10 dark:hover:bg-flathub-white/10",
+          "absolute end-4 top-1/2 size-11",
+          forceTheme && "hidden",
+        )}
+        variant="ghost"
+      />
+    </Carousel>
+  )
+}
+
+
+export const HeroBanner = ({
+  heroBannerData,
+  currentIndex,
+  autoplay = true,
+  aboveTheFold = false,
+  forceTheme = undefined,
+}: {
+  heroBannerData: {
+    app: { isFullscreen: boolean }
+    appstream: Pick<
+      DesktopAppstream,
+      "id" | "name" | "branding" | "icon" | "summary" | "screenshots"
+    >
+  }[]
+  currentIndex?: number
+  autoplay?: boolean
+  aboveTheFold?: boolean
+  forceTheme?: "light" | "dark"
+}) => {
+  const locale = useLocale()
+
+  const [mounted, setMounted] = useState(false)
+  const { resolvedTheme } = useTheme()
+
+  const [api, setApi] = useState<CarouselApi>()
+  const [current, setCurrent] = useState(0)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!api) {
+      return
+    }
+
+    const autoPlay = api.plugins()?.autoplay as AutoplayType
+    if (!autoPlay) {
+      return
+    }
+
+    if (current && currentIndex !== -1) {
+      api.scrollTo(currentIndex)
+    }
+    setCurrent(api.selectedScrollSnap() + 1)
+
+    const onSelect = () => {
+      setCurrent(api.selectedScrollSnap() + 1)
+      autoPlay.reset()
+    }
+
+    const onPointerDown = () => {
+      autoPlay.stop()
+    }
+
+    const onPointerUp = () => {
+      autoPlay.play()
+    }
+
+    api.on("select", onSelect)
+    api.on("pointerDown", onPointerDown)
+    api.on("pointerUp", onPointerUp)
+
+    return () => {
+      api.off("select", onSelect)
+      api.off("pointerDown", onPointerDown)
+      api.off("pointerUp", onPointerUp)
+    }
+  }, [api, currentIndex])
+
+  const direction = getLangDir(locale) ?? "ltr"
+
+  return (
+    <Carousel
+      opts={{
+        loop: true,
+        direction,
+      }}
+      plugins={[
+        WheelGesturesPlugin(),
+        Autoplay({
+          delay: 5000,
+          active: autoplay,
+        }),
+      ]}
       className="overflow-hidden shadow-md rounded-xl"
       setApi={setApi}
     >
