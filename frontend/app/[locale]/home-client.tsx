@@ -161,6 +161,7 @@ function CategorySection({
             }
             showMore={true}
             moreText={t(`more-${sectionData.category.toLowerCase()}`)}
+            peek={true}
           />
         </div>
       ))}
@@ -225,6 +226,7 @@ function TopSection({
       }
       showMore={true}
       moreText={t(`more-${selectedApps.name}`)}
+      peek={true}
     />
   )
 }

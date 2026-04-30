@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl"
 import { motion, useInView } from "framer-motion"
 import { MeilisearchResponseAppsIndex } from "../../codegen"
 import { mapAppsIndexToAppstreamListItem } from "../../meilisearch"
-import LogoImage from "../LogoImage"
+import LogoImage from "./LogoImage"
 import { Link } from "../../i18n/navigation"
 import { ArrowRight, CalendarPlus } from "lucide-react"
 
@@ -97,7 +97,7 @@ export function NewThisWeek({ recentlyAdded }: NewThisWeekProps) {
       {/* Timeline scroll container */}
       <div className="relative">
         {/* Connecting line */}
-        <div className="pointer-events-none absolute start-0 end-0 top-[1.35rem] h-px bg-flathub-gainsborow/60 dark:bg-flathub-arsenic" />
+        <div className="pointer-events-none absolute inset-s-0 inset-e-0 top-[1.35rem] h-px bg-flathub-gainsborow/60 dark:bg-flathub-arsenic" />
 
         <div className="overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <motion.div
@@ -121,7 +121,7 @@ export function NewThisWeek({ recentlyAdded }: NewThisWeekProps) {
                 </div>
 
                 {/* App icons */}
-                <div className="flex flex-wrap justify-center gap-2 max-w-[12rem]">
+                <div className="flex max-w-48 flex-wrap justify-center gap-2">
                   {apps.slice(0, 6).map((app) => (
                     <Link
                       key={app.id}

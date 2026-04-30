@@ -56,6 +56,7 @@ export default function SubcategoryPageClient({
         page={applications.page}
         totalPages={applications.totalPages}
         totalHits={applications.totalHits}
+        peek={true}
       />
     </div>
   )

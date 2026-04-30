@@ -5,6 +5,7 @@ import { AppstreamListItem } from "../../types/Appstream"
 import { useTranslations } from "next-intl"
 import Pagination from "../Pagination"
 import { ApplicationCard } from "./ApplicationCard"
+import { AppCardWithPeek } from "./AppCardWithPeek"
 import { Button } from "@/components/ui/button"
 import { useSearchParams } from "next/navigation"
 import { GetAppstreamAppstreamAppIdGet200 } from "src/codegen/model/getAppstreamAppstreamAppIdGet200"
@@ -23,6 +24,7 @@ interface Props {
   showRuntime?: boolean
   showEolBadge?: boolean
   customButtons?: JSX.Element
+  peek?: boolean
 }
 
 const Header = ({
@@ -73,6 +75,7 @@ const ApplicationCollection: FunctionComponent<Props> = ({
   showRuntime = false,
   showEolBadge = false,
   customButtons,
+  peek = false,
 }) => {
   const t = useTranslations()
   const searchParams = useSearchParams()
@@ -122,17 +125,21 @@ const ApplicationCollection: FunctionComponent<Props> = ({
       <div className="grid grid-cols-1 justify-around gap-4 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-3">
         {applications.map((app, index) => (
           <div key={app.id} className="flex flex-col gap-2">
-            <ApplicationCard
-              application={app}
-              link={link}
-              variant={variant}
-              showId={showId}
-              showRuntime={showRuntime}
-              priority={index < 6}
-              endAdornment={
-                showEolBadge && app.is_eol ? <EolBadge /> : undefined
-              }
-            />
+            {peek && !link && variant === "default" && !showEolBadge ? (
+              <AppCardWithPeek application={app} priority={index < 6} />
+            ) : (
+              <ApplicationCard
+                application={app}
+                link={link}
+                variant={variant}
+                showId={showId}
+                showRuntime={showRuntime}
+                priority={index < 6}
+                endAdornment={
+                  showEolBadge && app.is_eol ? <EolBadge /> : undefined
+                }
+              />
+            )}
           </div>
         ))}
       </div>

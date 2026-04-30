@@ -20,6 +20,7 @@ export default function MobileCollectionClient({ applications }: Props) {
         page={applications.page}
         totalPages={applications.totalPages}
         totalHits={applications.totalHits}
+        peek={true}
       />
     </div>
   )

@@ -1,8 +1,8 @@
 import { AxiosResponse } from "axios"
 import {
-  ApplicationCard,
   ApplicationCardSkeleton,
 } from "../application/ApplicationCard"
+import { AppCardWithPeek } from "../application/AppCardWithPeek"
 import { FunctionComponent } from "react"
 import { mapAppsIndexToAppstreamListItem } from "src/meilisearch"
 import { UseMutationResult } from "@tanstack/react-query"
@@ -49,7 +49,7 @@ export const SearchResults: FunctionComponent<Props> = ({
           !isInitialLoading &&
           allHits.map((app, index) => (
             <div key={app.app_id} className="flex flex-col gap-2">
-              <ApplicationCard
+              <AppCardWithPeek
                 application={mapAppsIndexToAppstreamListItem(app)}
                 priority={index < 6}
               />

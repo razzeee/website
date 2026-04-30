@@ -19,6 +19,7 @@ export default function PopularCollectionClient({ applications }: Props) {
         applications={applications.hits.map(mapAppsIndexToAppstreamListItem)}
         page={applications.page}
         totalPages={applications.totalPages}
+        peek={true}
       />
     </div>
   )

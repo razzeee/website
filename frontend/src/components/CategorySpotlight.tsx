@@ -3,14 +3,11 @@
 import { useMemo, useRef } from "react"
 import { useTranslations } from "next-intl"
 import { motion, useInView } from "framer-motion"
-import {
-  MainCategory,
-  MeilisearchResponseAppsIndex,
-} from "../../codegen"
-import { mapAppsIndexToAppstreamListItem } from "../../meilisearch"
-import { categoryToName } from "../../types/Category"
-import LogoImage from "../LogoImage"
-import { Link } from "../../i18n/navigation"
+import { MainCategory, MeilisearchResponseAppsIndex } from "../codegen"
+import { mapAppsIndexToAppstreamListItem } from "../meilisearch"
+import { categoryToName } from "../types/Category"
+import LogoImage from "./LogoImage"
+import { Link } from "../i18n/navigation"
 import { ArrowRight } from "lucide-react"
 
 interface CategorySpotlightProps {
@@ -33,7 +30,7 @@ const cardVariants = {
     opacity: 1,
     scale: 1,
     y: 0,
-    transition: { duration: 0.3, ease: "easeOut" },
+    transition: { duration: 0.3, ease: [0, 0, 0.2, 1] as const },
   },
 }
 
@@ -51,7 +48,7 @@ function CategoryCard({
   )
 
   const categoryName = categoryToName(category, t)
-  const totalApps = apps.estimatedTotalHits ?? appItems.length
+  const totalApps = apps.totalHits ?? appItems.length
 
   return (
     <motion.div variants={cardVariants}>
@@ -74,7 +71,7 @@ function CategoryCard({
                     <LogoImage
                       iconUrl={app.icon}
                       appName={app.name}
-                      size={48}
+                      size={64}
                     />
                   </div>
                 ) : null}
@@ -84,7 +81,7 @@ function CategoryCard({
         </div>
 
         {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-flathub-dark-gunmetal/90 via-flathub-dark-gunmetal/30 to-transparent" />
+        <div className="absolute inset-0 bg-linear-to-t from-flathub-dark-gunmetal/90 via-flathub-dark-gunmetal/30 to-transparent" />
 
         {/* Content */}
         <div className="relative mt-auto flex items-end justify-between p-4">
@@ -97,7 +94,10 @@ function CategoryCard({
             </p>
           </div>
           <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm transition duration-200 group-hover:bg-white/30">
-            <ArrowRight className="size-4 text-white rtl:rotate-180" aria-hidden="true" />
+            <ArrowRight
+              className="size-4 text-white rtl:rotate-180"
+              aria-hidden="true"
+            />
           </div>
         </div>
       </Link>
@@ -105,7 +105,9 @@ function CategoryCard({
   )
 }
 
-export function CategorySpotlight({ topAppsByCategory }: CategorySpotlightProps) {
+export function CategorySpotlight({
+  topAppsByCategory,
+}: CategorySpotlightProps) {
   const t = useTranslations()
   const ref = useRef<HTMLDivElement>(null)
   const isInView = useInView(ref, { once: true, margin: "0px 0px -60px 0px" })

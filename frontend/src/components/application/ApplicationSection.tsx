@@ -3,6 +3,7 @@ import { FunctionComponent, ReactElement } from "react"
 import { AppstreamListItem } from "../../types/Appstream"
 
 import { ApplicationCard, ApplicationCardSkeleton } from "./ApplicationCard"
+import { AppCardWithPeek } from "./AppCardWithPeek"
 import clsx from "clsx"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -16,6 +17,7 @@ interface PropsWithTitle {
   showMore: boolean
   moreText: string
   numberOfApps?: number
+  peek?: boolean
 }
 interface PropsWithCustomHeader {
   type: "withCustomHeader"
@@ -25,6 +27,7 @@ interface PropsWithCustomHeader {
   showMore: boolean
   moreText: string
   numberOfApps?: number
+  peek?: boolean
 }
 
 interface PropsWithCustomHeaderAndTransparent {
@@ -35,6 +38,7 @@ interface PropsWithCustomHeaderAndTransparent {
   showMore: boolean
   moreText: string
   numberOfApps?: number
+  peek?: boolean
 }
 
 const ApplicationSection: FunctionComponent<
@@ -60,15 +64,19 @@ const ApplicationSection: FunctionComponent<
             <ApplicationCardSkeleton key={i} />
           ))}
         {prop.applications.map((app) => (
-          <div key={app.id}>
-            <ApplicationCard
-              application={app}
-              variant={
-                prop.type === "withCustomHeaderAndTransparent"
-                  ? "flat"
-                  : "default"
-              }
-            />
+          <div key={app.id} className="relative">
+            {prop.peek ? (
+              <AppCardWithPeek application={app} />
+            ) : (
+              <ApplicationCard
+                application={app}
+                variant={
+                  prop.type === "withCustomHeaderAndTransparent"
+                    ? "flat"
+                    : "default"
+                }
+              />
+            )}
           </div>
         ))}
       </div>
