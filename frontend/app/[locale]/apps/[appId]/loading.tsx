@@ -32,9 +32,23 @@ export default function AppDetailLoading() {
       </div>
 
       {/* CarouselStrip */}
-      <div className="col-start-1 col-end-4 bg-flathub-gainsborow dark:bg-flathub-arsenic">
-        <div className="mx-auto flex max-w-[1400px] items-center justify-center py-6">
-          <Skeleton className="h-[288px] w-[512px] shrink-0 rounded-xl" />
+      <div className="col-start-1 col-end-4 min-w-0 overflow-hidden bg-flathub-gainsborow dark:bg-flathub-arsenic">
+        <div className="relative min-w-0">
+          <div className="relative flex h-[220px] items-center overflow-hidden sm:h-[280px] lg:h-[360px] xl:h-[420px]">
+            <div className="flex h-full w-full min-w-0 flex-1 items-center justify-center gap-6 overflow-hidden px-6 py-8 sm:justify-start sm:gap-8 sm:px-10 lg:gap-10 lg:px-20">
+              <Skeleton className="hidden h-full w-[min(76vw,560px)] shrink-0 rounded-xl sm:block" />
+              <Skeleton className="h-full w-[min(76vw,560px)] shrink-0 rounded-xl" />
+              <Skeleton className="hidden h-full w-[min(76vw,560px)] shrink-0 rounded-xl sm:block" />
+            </div>
+          </div>
+          <div className="flex justify-center pb-4">
+            <Skeleton className="h-4 w-40" />
+          </div>
+          <div className="flex justify-center gap-3 pb-8">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="size-2.5 rounded-full" />
+            ))}
+          </div>
         </div>
       </div>
 
