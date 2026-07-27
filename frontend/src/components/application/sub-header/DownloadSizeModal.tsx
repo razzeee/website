@@ -9,16 +9,14 @@ const DownloadSizeModal = ({
   isOpen,
   onClose,
   summary,
+  downloadSize,
 }: {
   isOpen: boolean
   onClose: () => void
   summary: Summary
+  downloadSize: number
 }) => {
   const t = useTranslations()
-
-  const runtimeVersion = summary.metadata?.runtime
-    ? summary.metadata.runtime.split("/")[2]
-    : undefined
 
   const items: {
     id: number
@@ -30,19 +28,20 @@ const DownloadSizeModal = ({
       id: 0,
       header: t("download-size"),
       description: t("sub-header.amount-to-download"),
-      icon: (
-        <SizeBadge size={calculateHumanReadableSize(summary.download_size)} />
-      ),
+      icon: <SizeBadge size={calculateHumanReadableSize(downloadSize)} />,
     },
-    {
+  ]
+
+  if (typeof summary.installed_size === "number") {
+    items.push({
       id: 1,
       header: t("installed-size"),
       description: t("sub-header.size-on-disk"),
       icon: (
         <SizeBadge size={calculateHumanReadableSize(summary.installed_size)} />
       ),
-    },
-  ]
+    })
+  }
 
   if (summary.metadata?.runtimeInstalledSize) {
     items.push({
@@ -68,7 +67,7 @@ const DownloadSizeModal = ({
       centerTitle
       aboveTitle={
         <div className="flex flex-col items-center pb-2">
-          <SizeBadge size={calculateHumanReadableSize(summary.download_size)} />
+          <SizeBadge size={calculateHumanReadableSize(downloadSize)} />
         </div>
       }
       title={t("download-size")}

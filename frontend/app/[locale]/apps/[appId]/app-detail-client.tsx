@@ -34,7 +34,7 @@ interface AppDetailClientProps {
   eolMessage: string
   addons: AddonAppstream[]
   locale: string
-  datePublished: string
+  datePublished?: string
 }
 
 function categoryToSeoCategories(categories: string[]) {
@@ -114,6 +114,14 @@ const AppDetailClient = ({
 
   const contentRating = getContentRating(app, locale)
   const contentRatingText = contentRating?.minimumAgeText ?? undefined
+  const downloadSize =
+    typeof summary?.download_size === "number"
+      ? calculateHumanReadableSize(summary.download_size)
+      : t("unknown")
+  const installedSize =
+    typeof summary?.installed_size === "number"
+      ? calculateHumanReadableSize(summary.installed_size)
+      : t("unknown")
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_BASE_URI || "https://flathub.org"
 
@@ -180,11 +188,7 @@ const AppDetailClient = ({
         )}
         keywords={keywords.join(", ")}
         description={app.summary}
-        fileSize={
-          summary
-            ? calculateHumanReadableSize(summary.download_size)
-            : t("unknown")
-        }
+        fileSize={downloadSize}
         datePublished={datePublished}
         screenshot={
           screenshot
@@ -198,11 +202,7 @@ const AppDetailClient = ({
             : undefined
         }
         softwareVersion={lastStableVersion}
-        storageRequirements={
-          summary
-            ? calculateHumanReadableSize(summary.installed_size)
-            : t("unknown")
-        }
+        storageRequirements={installedSize}
         contentRating={contentRatingText}
       />
       {isDesktopAppstreamTypeGuard(app) && app.categories?.includes("Game") && (
@@ -222,11 +222,7 @@ const AppDetailClient = ({
             price: "0",
             priceCurrency: "USD",
           }}
-          fileSize={
-            summary
-              ? calculateHumanReadableSize(summary.download_size)
-              : t("unknown")
-          }
+          fileSize={downloadSize}
           datePublished={datePublished}
           screenshot={
             screenshot
@@ -240,11 +236,7 @@ const AppDetailClient = ({
               : undefined
           }
           softwareVersion={lastStableVersion}
-          storageRequirements={
-            summary
-              ? calculateHumanReadableSize(summary.installed_size)
-              : t("unknown")
-          }
+          storageRequirements={installedSize}
           contentRating={contentRatingText}
         />
       )}

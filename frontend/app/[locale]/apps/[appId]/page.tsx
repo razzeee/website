@@ -136,7 +136,7 @@ export default async function AppDetailPage({
         eolMessage={eolMessage}
         addons={[]}
         locale={locale}
-        datePublished=""
+        datePublished={undefined}
       />
     )
   }
@@ -241,7 +241,10 @@ export default async function AppDetailPage({
     const developerApps = developerAppsResponse?.data ?? null
 
     // Get date published (matching original pages router logic)
-    const datePublished = formatISO(new UTCDate(summary?.timestamp ?? 0 * 1000))
+    const datePublished =
+      typeof summary.timestamp === "number"
+        ? formatISO(new UTCDate(summary.timestamp * 1000))
+        : undefined
 
     return (
       <AppDetailClient

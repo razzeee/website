@@ -76,7 +76,7 @@ const SubHeader: FunctionComponent<SubHeaderProps> = ({
   const items: React.ReactNode[] = []
 
   // Download Size
-  if (summary) {
+  if (typeof summary?.download_size === "number") {
     items.push(
       <SubHeaderItem key="download" onClick={() => setDownloadSizeOpen(true)}>
         <span className="inline-flex h-8 items-center rounded-full bg-flathub-gainsborow/60 px-3 text-base font-bold leading-none tabular-nums dark:bg-flathub-granite-gray/60">
@@ -231,11 +231,12 @@ const SubHeader: FunctionComponent<SubHeaderProps> = ({
       </section>
 
       {/* Modals */}
-      {summary && (
+      {typeof summary?.download_size === "number" && (
         <DownloadSizeModal
           isOpen={downloadSizeOpen}
           onClose={() => setDownloadSizeOpen(false)}
           summary={summary}
+          downloadSize={summary.download_size}
         />
       )}
 
