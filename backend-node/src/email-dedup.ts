@@ -54,4 +54,4 @@ function cleanupExpiredEntries(): void {
 }
 
 // Start deterministic cleanup every 10 minutes
-setInterval(cleanupExpiredEntries, CLEANUP_INTERVAL_MS)
+setInterval(cleanupExpiredEntries, CLEANUP_INTERVAL_MS).unref()
