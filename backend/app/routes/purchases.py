@@ -38,6 +38,19 @@ class ErrorDetail(StrEnum):
     PURCHASE_NECESSARY = "purchase_necessary"
 
 
+def _extract_app_ids(appids: list[str], *, require_refs: bool = False) -> list[str]:
+    extracted = []
+    for app_id in appids:
+        parts = app_id.split("/")
+        if require_refs and len(parts) < 2:
+            raise HTTPException(status_code=400, detail="invalid_app_id")
+        extracted_id = parts[1] if len(parts) > 1 else parts[0]
+        if not extracted_id:
+            raise HTTPException(status_code=400, detail="invalid_app_id")
+        extracted.append(extracted_id)
+    return extracted
+
+
 @router.get(
     "/storefront-info",
     status_code=200,
@@ -204,12 +217,7 @@ def check_purchases(
         raise HTTPException(status_code=401, detail=ErrorDetail.NOT_LOGGED_IN)
 
     # We get full ref names, e.g. app/org.gnome.Maps/x86_64/master, but we just want the app ID part.
-    try:
-        appids = [
-            app_id.split("/")[1] if "/" in app_id else app_id for app_id in appids
-        ]
-    except IndexError:
-        raise HTTPException(status_code=400, detail="invalid_app_id")
+    appids = _extract_app_ids(appids)
 
     _check_purchases(appids, login["user"].id)
 
@@ -258,10 +266,7 @@ def get_download_token(
     ):
         raise HTTPException(status_code=401, detail="invalid_token")
 
-    try:
-        appids = [app_id.split("/")[1] for app_id in appids]
-    except IndexError:
-        raise HTTPException(status_code=400, detail="invalid_app_id")
+    appids = _extract_app_ids(appids, require_refs=True)
 
     _check_purchases(appids, claims["user-id"])
 
