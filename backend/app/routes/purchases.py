@@ -246,8 +246,16 @@ def get_download_token(
             update_token,
             base64.b64decode(config.settings.update_token_secret),
             algorithms=["HS256"],
+            options={"require": ["exp", "user-id", "token-id"]},
         )
     except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="invalid_token")
+
+    if (
+        type(claims.get("user-id")) is not int
+        or not isinstance(claims.get("token-id"), str)
+        or not claims["token-id"]
+    ):
         raise HTTPException(status_code=401, detail="invalid_token")
 
     try:
