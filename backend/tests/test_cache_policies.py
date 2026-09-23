@@ -178,3 +178,12 @@ def test_cached_wrapper_retains_policy_metadata():
     endpoint = cache.private(cache.cached()(lambda: None))
 
     assert getattr(endpoint, cache.CACHE_CONTROL_POLICY) == ("private", None)
+
+
+def test_cache_key_supports_integers_outside_signed_64_bit_range():
+    async def endpoint(value: int):
+        return value
+
+    cache_key = cache._make_cache_key(endpoint, (), {"value": 10**40})
+
+    assert cache_key.startswith("cache:endpoint:endpoint:")

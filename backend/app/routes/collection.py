@@ -11,6 +11,8 @@ router = APIRouter(
 )
 OptionalSubcategoriesQuery = Annotated[list[str] | None, Query()]
 SubcategoriesQuery = Annotated[list[str], Query()]
+PaginationPageQuery = Annotated[int | None, Query(ge=0)]
+PaginationPerPageQuery = Annotated[int | None, Query(ge=1, le=1000)]
 
 
 def register_to_app(app: FastAPI):
@@ -308,8 +310,8 @@ async def get_recently_updated(
 @cached(ttl=300)
 async def get_recently_added(
     response: Response,
-    page: int | None = None,
-    per_page: int | None = None,
+    page: PaginationPageQuery = None,
+    per_page: PaginationPerPageQuery = None,
     locale: str = "en",
 ) -> search.MeilisearchResponse[search.AppsIndex]:
     """

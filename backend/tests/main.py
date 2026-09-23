@@ -826,6 +826,13 @@ def test_collection_recently_added_invalid_pagination(client):
     assert response.status_code == 400
 
 
+def test_collection_recently_added_rejects_excessive_per_page(client):
+    response = client.get(
+        "/collection/recently-added?page=1&per_page=1000000000000000000000000000000000000000000"
+    )
+    assert response.status_code == 422
+
+
 def test_collection_verified(client, snapshot):
     """Smoke test for GET /collection/verified endpoint"""
     response = client.get("/collection/verified")

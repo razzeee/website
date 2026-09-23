@@ -21,6 +21,22 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 STALE_THRESHOLD = 0.8
+MIN_CACHE_KEY_INTEGER = -(2**63)
+MAX_CACHE_KEY_INTEGER = 2**63 - 1
+
+
+def _normalize_cache_key_value(value: Any) -> Any:
+    if isinstance(value, int) and not (
+        MIN_CACHE_KEY_INTEGER <= value <= MAX_CACHE_KEY_INTEGER
+    ):
+        return str(value)
+    if isinstance(value, dict):
+        return {
+            key: _normalize_cache_key_value(item) for key, item in value.items()
+        }
+    if isinstance(value, (list, tuple)):
+        return [_normalize_cache_key_value(item) for item in value]
+    return value
 
 
 def _get_response_from_args(func: Any, args: tuple, kwargs: dict) -> Response | None:
@@ -49,7 +65,7 @@ def _make_cache_key(func: Any, args: tuple, kwargs: dict) -> str:
 
     key_data = {
         "func": func.__name__,
-        "kwargs": normalized_kwargs,
+        "kwargs": _normalize_cache_key_value(normalized_kwargs),
     }
 
     key_hash = hashlib.md5(
