@@ -1,12 +1,18 @@
 import random
-from datetime import UTC, datetime, timedelta
-from typing import cast
+from datetime import UTC, date, datetime, timedelta
+from typing import TypedDict
 
 import dramatiq
 
 from .. import cron, models
 from ..database import get_all_appids_for_frontend, get_db
 from .redis import invalidate_cache_by_pattern
+
+
+class _AppOfDayCandidate(TypedDict):
+    id: str
+    quality_moderation_status: models.QualityModerationStatus
+    last_time_app_of_the_day: date
 
 
 @cron.cron("0 3 * * *")  # every day at 3am
@@ -22,17 +28,17 @@ def update_app_picks():
 
 def pick_app_of_the_day_automatically(db, day):
     # Check if we already have an app of the day
-    if x := models.AppOfTheDay.by_date(db, day):
+    if models.AppOfTheDay.by_date(db, day):
         print("App of the day already set for day", day)
         return
 
-    x = [
+    candidates: list[_AppOfDayCandidate] = [
         {
             "id": appId,
-            "quality-moderation-status": models.QualityModeration.by_appid_summarized(
+            "quality_moderation_status": models.QualityModeration.by_appid_summarized(
                 db, appId
             ),
-            "last-time-app-of-the-day": models.AppOfTheDay.by_appid_last_time_app_of_the_day(
+            "last_time_app_of_the_day": models.AppOfTheDay.by_appid_last_time_app_of_the_day(
                 db, appId
             ),
         }
@@ -40,11 +46,7 @@ def pick_app_of_the_day_automatically(db, day):
     ]
 
     all_passed_apps = [
-        app
-        for app in x
-        if cast(
-            "models.QualityModerationStatus", app["quality-moderation-status"]
-        ).passes
+        app for app in candidates if app["quality_moderation_status"].passes
     ]
 
     # Remove apps of the week from the list
@@ -59,23 +61,23 @@ def pick_app_of_the_day_automatically(db, day):
 
     # Sort by last time app of the day
     all_passed_apps.sort(
-        key=lambda app: app["last-time-app-of-the-day"],
+        key=lambda app: app["last_time_app_of_the_day"],
     )
 
     if not all_passed_apps:
         return
 
     # Filter by oldest
-    oldest_apps = [
+    oldest_apps: list[str] = [
         app["id"]
         for app in all_passed_apps
-        if app["last-time-app-of-the-day"]
-        == all_passed_apps[0]["last-time-app-of-the-day"]
+        if app["last_time_app_of_the_day"]
+        == all_passed_apps[0]["last_time_app_of_the_day"]
     ]
 
     # Pick random app
     random.shuffle(oldest_apps)
 
     if len(oldest_apps) > 0:
-        models.AppOfTheDay.set_app_of_the_day(db, cast("str", oldest_apps[0]), day)
+        models.AppOfTheDay.set_app_of_the_day(db, oldest_apps[0], day)
         invalidate_cache_by_pattern("cache:endpoint:get_app_of_the_day:*")

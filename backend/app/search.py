@@ -1,6 +1,7 @@
 import json
 import logging
-from typing import Any, TypeVar
+from collections.abc import Mapping, Sequence
+from typing import Protocol, TypeVar
 
 import meilisearch
 import meilisearch.errors
@@ -159,8 +160,8 @@ _configure_meilisearch_index(client)
 
 def _translate_name_and_summary[
     U: (
-        MeilisearchResponse,
-        MeilisearchResponseLimited,
+        MeilisearchResponse[AppsIndex],
+        MeilisearchResponseLimited[AppsIndex],
     )
 ](locale: str, searchResults: U):
     fallbackLocale = locale.split("-")[0]
@@ -175,23 +176,29 @@ def _translate_name_and_summary[
                 picked_locale = fallbackLocale
 
             if picked_locale:
-                if "name" in searchResult.translations[picked_locale]:
-                    searchResult.name = searchResult.translations[picked_locale]["name"]
+                translated_name = searchResult.translations[picked_locale].get("name")
+                if isinstance(translated_name, str):
+                    searchResult.name = translated_name
 
-                if "summary" in searchResult.translations[picked_locale]:
-                    searchResult.summary = searchResult.translations[picked_locale][
-                        "summary"
-                    ]
+                translated_summary = searchResult.translations[picked_locale].get(
+                    "summary"
+                )
+                if isinstance(translated_summary, str):
+                    searchResult.summary = translated_summary
 
-                if "description" in searchResult.translations[picked_locale]:
-                    searchResult.description = searchResult.translations[picked_locale][
-                        "description"
-                    ]
+                translated_description = searchResult.translations[picked_locale].get(
+                    "description"
+                )
+                if isinstance(translated_description, str):
+                    searchResult.description = translated_description
 
-                if "keywords" in searchResult.translations[picked_locale]:
-                    searchResult.keywords = searchResult.translations[picked_locale][
-                        "keywords"
-                    ]
+                translated_keywords = searchResult.translations[picked_locale].get(
+                    "keywords"
+                )
+                if isinstance(translated_keywords, list) and all(
+                    isinstance(keyword, str) for keyword in translated_keywords
+                ):
+                    searchResult.keywords = translated_keywords
 
             # Always delete translations from the response, regardless of whether a locale match was found
             del searchResult.translations
@@ -204,7 +211,7 @@ def _sanitize_string(value: str) -> str:
     return value.encode("utf-8", errors="ignore").decode("utf-8")
 
 
-def _sanitize_string_list(value: list[Any]) -> list[str]:
+def _sanitize_string_list(value: Sequence[object]) -> list[str]:
     clean_values = []
 
     for item in value:
@@ -218,7 +225,9 @@ def _sanitize_string_list(value: list[Any]) -> list[str]:
     return clean_values
 
 
-def _normalize_translation_value(value: Any) -> dict[str, str | list[str]] | None:
+def _normalize_translation_value(
+    value: object,
+) -> dict[str, str | list[str]] | None:
     normalized_value = value
     if isinstance(normalized_value, str):
         stripped = normalized_value.strip()
@@ -235,7 +244,7 @@ def _normalize_translation_value(value: Any) -> dict[str, str | list[str]] | Non
 
     clean_translation = {}
     for key, key_value in normalized_value.items():
-        if key not in ALLOWED_TRANSLATION_KEYS:
+        if not isinstance(key, str) or key not in ALLOWED_TRANSLATION_KEYS:
             continue
 
         if key == "keywords":
@@ -257,7 +266,7 @@ def _normalize_translation_value(value: Any) -> dict[str, str | list[str]] | Non
 
 
 def _sanitize_translations(
-    value: Any,
+    value: object,
 ) -> dict[str, dict[str, str | list[str]]]:
     if not isinstance(value, dict):
         return {}
@@ -276,7 +285,7 @@ def _sanitize_translations(
     return clean_translations
 
 
-def _validate_json_safe(document: dict[str, Any]) -> tuple[bool, str | None]:
+def _validate_json_safe(document: dict[str, object]) -> tuple[bool, str | None]:
     try:
         # `allow_nan=False` keeps payload strict-JSON (Meilisearch rejects NaN/Infinity).
         json.dumps(document, ensure_ascii=False, allow_nan=False)
@@ -287,8 +296,8 @@ def _validate_json_safe(document: dict[str, Any]) -> tuple[bool, str | None]:
 
 
 def _sanitize_index_document(
-    document: dict[str, Any],
-) -> tuple[dict[str, Any] | None, str | None]:
+    document: Mapping[str, object],
+) -> tuple[dict[str, object] | None, str | None]:
     if not isinstance(document, dict):
         return None, "document is not a dictionary"
 
@@ -326,17 +335,23 @@ def _sanitize_index_document(
     return clean_document, None
 
 
-def _get_doc_identifier(document: dict[str, Any]) -> str:
-    if isinstance(document.get("app_id"), str):
-        return document["app_id"]
-    if isinstance(document.get("id"), str):
-        return document["id"]
+def _get_doc_identifier(document: Mapping[str, object]) -> str:
+    app_id = document.get("app_id")
+    if isinstance(app_id, str):
+        return app_id
+    document_id = document.get("id")
+    if isinstance(document_id, str):
+        return document_id
     return "<unknown>"
 
 
+class _MeilisearchIndex(Protocol):
+    def update_documents(self, documents: list[dict[str, object]]) -> object: ...
+
+
 def _update_documents_with_fallback(
-    index: Any, documents: list[dict[str, Any]]
-) -> tuple[int, list[tuple[dict[str, Any], str]]]:
+    index: _MeilisearchIndex, documents: list[dict[str, object]]
+) -> tuple[int, list[tuple[dict[str, object], str]]]:
     if not documents:
         return 0, []
 
@@ -357,7 +372,9 @@ def _update_documents_with_fallback(
         return accepted_left + accepted_right, skipped_left + skipped_right
 
 
-def create_or_update_apps(apps_to_update: list[dict]):
+def create_or_update_apps(
+    apps_to_update: Sequence[Mapping[str, object]],
+) -> None:
     sanitized_documents = []
     skipped_for_sanitization = []
 

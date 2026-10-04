@@ -2,6 +2,7 @@ from fastapi import APIRouter, FastAPI, Path, Response
 from pydantic import BaseModel
 
 from .. import cache, database, stats
+from ..types import JSONValue
 
 router = APIRouter(
     prefix="/stats",
@@ -35,7 +36,7 @@ class StatsResult(BaseModel):
     os_flatpak_versions: dict[str, dict[str, int]]
 
 
-def _normalize_stats_result(value: dict) -> StatsResult:
+def _normalize_stats_result(value: dict[str, JSONValue]) -> StatsResult:
     if "os_versions" not in value or value["os_versions"] is None:
         value["os_versions"] = {}
     if "flatpak_versions" not in value or value["flatpak_versions"] is None:

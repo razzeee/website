@@ -18,6 +18,7 @@ def invalidate_cache_by_pattern(pattern: str) -> int:
         deleted_count = 0
         cursor = 0
         while True:
+            # redis-py exposes sync/async union stubs; this instance is synchronous.
             cursor, keys = cast(
                 "tuple[int, list[str]]",
                 redis_conn.scan(cursor=cursor, match=pattern, count=100),

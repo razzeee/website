@@ -4,24 +4,22 @@ import base64
 import hashlib
 import hmac
 import secrets
-from typing import TYPE_CHECKING, Any, Protocol, TypeGuard, cast
+from typing import TYPE_CHECKING, Protocol, TypeGuard, runtime_checkable
 
 from sqlalchemy import select, update
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from sqlalchemy.sql.base import Executable
+
+    from .db_session import DBSession
     from .models import FlathubUser
 
 TOKEN_BYTES = 32
 PBKDF2_ITERATIONS = 600_000
 PBKDF2_SALT_BYTES = 32
 CLIENT_SECRET_HASH_SCHEME = "pbkdf2_sha256"
-
-
-class OidcSubjectUser(Protocol):
-    id: int
-    oidc_subject: str | None
 
 
 class OidcClientRecord(Protocol):
@@ -31,6 +29,21 @@ class OidcClientRecord(Protocol):
     allowed_scopes: Sequence[str]
     enabled: bool
     refresh_tokens_enabled: bool
+
+
+class _ScalarResult(Protocol):
+    def scalar_one_or_none(self) -> str | None: ...
+
+
+@runtime_checkable
+class _OidcSession(Protocol):
+    def execute(self, statement: Executable) -> _ScalarResult: ...
+
+
+@runtime_checkable
+class _OidcDatabase(Protocol):
+    @property
+    def session(self) -> _OidcSession: ...
 
 
 def generate_token(num_bytes: int = TOKEN_BYTES) -> str:
@@ -97,12 +110,14 @@ def verify_pkce_s256(code_verifier: str, code_challenge: str) -> bool:
     return hmac.compare_digest(expected, code_challenge)
 
 
-def ensure_oidc_subject(db: Any, user: OidcSubjectUser) -> str:
+def ensure_oidc_subject(
+    db: _OidcSession | _OidcDatabase | DBSession, user: FlathubUser
+) -> str:
     if user.oidc_subject is not None:
         return user.oidc_subject
 
-    session = getattr(db, "session", db)
-    user_model = cast("type[FlathubUser]", type(user))
+    session = db if isinstance(db, _OidcSession) else db.session
+    user_model = type(user)
 
     subject = session.execute(
         update(user_model)

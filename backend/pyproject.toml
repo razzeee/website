@@ -57,3 +57,6 @@ exclude = ["alembic/versions/*"]
 include = [
     "app"
 ]
+
+[tool.ty.rules]
+missing-type-argument = "error"

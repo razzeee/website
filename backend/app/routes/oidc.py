@@ -1,7 +1,7 @@
 import base64
 import json
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import NotRequired, TypedDict
 from urllib.parse import quote, urlencode, urlsplit
 
 from fastapi import APIRouter, Depends, FastAPI, Form, HTTPException, Query, Request
@@ -23,6 +23,23 @@ from ..oidc import (
     verify_client_secret,
     verify_pkce_s256,
 )
+
+
+class _TokenResponse(TypedDict):
+    access_token: str
+    token_type: str
+    expires_in: int
+    scope: str
+    refresh_token: NotRequired[str]
+    id_token: NotRequired[str]
+
+
+class _UserInfoClaims(TypedDict):
+    sub: str
+    name: NotRequired[str | None]
+    preferred_username: NotRequired[str]
+    picture: NotRequired[str]
+    email: NotRequired[str]
 
 
 def require_oidc_enabled():
@@ -76,7 +93,7 @@ def openid_configuration():
         500: {"description": "OIDC JWKS is not configured"},
     },
 )
-def jwks():
+def jwks() -> dict[str, list[dict[str, str | list[str]]]]:
     if config.settings.oidc_private_jwks is None:
         raise HTTPException(status_code=500, detail="OIDC JWKS is not configured")
 
@@ -86,7 +103,7 @@ def jwks():
     except (json.JSONDecodeError, KeyError, TypeError, JoseError) as e:
         raise HTTPException(status_code=500, detail="OIDC JWKS is invalid") from e
 
-    keys: list[dict[str, Any]] = []
+    keys: list[dict[str, str | list[str]]] = []
     for key in key_set:
         if key.key_type != "RSA":
             raise HTTPException(status_code=500, detail="OIDC JWKS is invalid")
@@ -281,7 +298,7 @@ def _sign_id_token(
     signing_key = _get_signing_key()
     issuer = config.settings.oidc_issuer.rstrip("/")
     now_epoch = int(now.replace(tzinfo=UTC).timestamp())
-    id_claims: dict[str, Any] = {
+    id_claims: dict[str, object] = {
         "iss": issuer,
         "sub": subject,
         "aud": client_id,
@@ -522,7 +539,7 @@ def _handle_authorization_code_grant(
             db, client_id, row.user_id, at_scope, now, family_id=family_id
         )
 
-    response: dict[str, Any] = {
+    response: _TokenResponse = {
         "access_token": access_token,
         "token_type": "Bearer",
         "expires_in": config.settings.oidc_access_token_lifetime_seconds,
@@ -635,7 +652,7 @@ def _handle_refresh_token_grant(
         if "openid" in effective_scope.split():
             id_token = _sign_id_token(client_id, subject, now)
 
-    response: dict[str, Any] = {
+    response: _TokenResponse = {
         "access_token": access_token,
         "token_type": "Bearer",
         "expires_in": config.settings.oidc_access_token_lifetime_seconds,
@@ -655,7 +672,7 @@ def _handle_refresh_token_grant(
         404: {"description": "OIDC is disabled"},
     },
 )
-def userinfo(request: Request):
+def userinfo(request: Request) -> _UserInfoClaims:
     auth_header = request.headers.get("Authorization")
     if not auth_header:
         raise HTTPException(status_code=401, detail="invalid_token")
@@ -694,7 +711,7 @@ def userinfo(request: Request):
         subject = ensure_oidc_subject(db, user)
         scopes = access_token_obj.scope.split()
 
-        claims: dict[str, Any] = {"sub": subject}
+        claims: _UserInfoClaims = {"sub": subject}
 
         if "profile" in scopes:
             claims["name"] = user.display_name

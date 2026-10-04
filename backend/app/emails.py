@@ -1,7 +1,6 @@
 import base64
 import datetime
 from enum import StrEnum
-from typing import Any
 
 import jwt
 from fastapi import APIRouter, Depends, FastAPI, HTTPException
@@ -11,6 +10,8 @@ from sqlalchemy import select
 
 from . import http_client, models
 from .config import settings
+from .db_session import DBSession
+from .types import JSONValue
 
 
 class EmailCategory(StrEnum):
@@ -27,16 +28,19 @@ class EmailCategory(StrEnum):
 
 
 def _get_destination_and_append(
-    payload: dict, db, messages: list, user: models.FlathubUser
-):
+    payload: dict[str, JSONValue],
+    db: DBSession,
+    messages: list[tuple[str, dict[str, JSONValue]]],
+    user: models.FlathubUser,
+) -> None:
     message = _get_message_destination(user, payload, db)
     if message and message[0] not in dict(messages):
         messages.append(message)
 
 
 def _get_message_destination(
-    user: models.FlathubUser, payload: dict, db
-) -> tuple[str, dict] | None:
+    user: models.FlathubUser, payload: dict[str, JSONValue], db: DBSession
+) -> tuple[str, dict[str, JSONValue]] | None:
     user_default_account = user.get_default_account(db)
     if user_default_account is None:
         print(f"Could not find default account for user #{user.id}")
@@ -50,56 +54,45 @@ def _get_message_destination(
     return (email, payload)
 
 
-def send_email_new(payload: dict, db):
+def send_email_new(payload: dict[str, JSONValue], db: DBSession) -> None:
     from . import worker
 
-    messages: list[tuple[str, dict]] = []
+    messages: list[tuple[str, dict[str, JSONValue]]] = []
 
-    if (
-        "messageInfo" in payload
-        and "appName" in payload["messageInfo"]
-        and payload["messageInfo"]["appName"] is not None
-    ):
-        payload["subject"] = (
-            payload["messageInfo"]["appName"] + " | " + payload["subject"]
-        )
+    message_info = payload.get("messageInfo")
+    if isinstance(message_info, dict):
+        app_name = message_info.get("appName")
+        subject = payload.get("subject")
+        if isinstance(app_name, str) and isinstance(subject, str):
+            payload["subject"] = f"{app_name} | {subject}"
 
-    if (
-        "messageInfo" in payload
-        and "appId" in payload["messageInfo"]
-        and payload["messageInfo"]["appId"] is not None
-    ):
-        if (
-            "inform_only_moderators" not in payload["messageInfo"]
-            or not payload["messageInfo"]["inform_only_moderators"]
-        ):
-            # Get the developers of the app
-            by_github_repo = (
-                db.session.query(models.FlathubUser)
-                .filter(
-                    models.FlathubUser.id.in_(
-                        select(models.GithubAccount.user).where(
-                            models.GithubAccount.id
-                            == models.GithubRepository.github_account,
-                            models.GithubRepository.reponame
-                            == payload["messageInfo"]["appId"],
+        app_id = message_info.get("appId")
+        if isinstance(app_id, str) and app_id:
+            if not message_info.get("inform_only_moderators"):
+                # Get the developers of the app
+                by_github_repo = (
+                    db.session.query(models.FlathubUser)
+                    .filter(
+                        models.FlathubUser.id.in_(
+                            select(models.GithubAccount.user).where(
+                                models.GithubAccount.id
+                                == models.GithubRepository.github_account,
+                                models.GithubRepository.reponame == app_id,
+                            )
                         )
                     )
+                    .all()
                 )
-                .all()
-            )
-            for user in by_github_repo:
-                _get_destination_and_append(payload, db, messages, user)
-
-            direct_upload_app = models.DirectUploadApp.by_app_id(
-                db, payload["messageInfo"]["appId"]
-            )
-            if direct_upload_app is not None:
-                by_direct_upload = models.DirectUploadAppDeveloper.by_app(
-                    db, direct_upload_app
-                )
-                for _dev, user in by_direct_upload:
+                for user in by_github_repo:
                     _get_destination_and_append(payload, db, messages, user)
+
+                direct_upload_app = models.DirectUploadApp.by_app_id(db, app_id)
+                if direct_upload_app is not None:
+                    by_direct_upload = models.DirectUploadAppDeveloper.by_app(
+                        db, direct_upload_app
+                    )
+                    for _dev, user in by_direct_upload:
+                        _get_destination_and_append(payload, db, messages, user)
 
     if "inform_only_moderators" in payload or "inform_moderators" in payload:
         users_with_moderator_permissions = models.FlathubUser.by_permission(
@@ -113,9 +106,10 @@ def send_email_new(payload: dict, db):
         for user in admin_users:
             _get_destination_and_append(payload, db, messages, user)
 
-    if "userId" in payload and payload["userId"] is not None:
+    user_id = payload.get("userId")
+    if isinstance(user_id, int):
         # Get the user's email address
-        if user := models.FlathubUser.by_id(db, payload["userId"]):
+        if user := models.FlathubUser.by_id(db, user_id):
             _get_destination_and_append(payload, db, messages, user)
         else:
             # User doesn't exist anymore?
@@ -128,7 +122,7 @@ def send_email_new(payload: dict, db):
         worker.send_one_email_new.send(message, dest)
 
 
-def send_one_email_new(payload: dict, dest: str):
+def send_one_email_new(payload: dict[str, JSONValue], dest: str) -> None:
     payload["to"] = dest
 
     result = http_client.post(f"{settings.backend_node_url}/emails", json=payload)
@@ -148,7 +142,14 @@ class BuildNotificationRequest(BaseModel):
     app_id: str
     build_id: int
     build_repo: str
-    diagnostics: list[Any]
+    diagnostics: list[dict[str, JSONValue]]
+
+
+def _diagnostic_is_warning(diagnostic: dict[str, JSONValue]) -> bool:
+    is_warning = diagnostic["is_warning"]
+    if not isinstance(is_warning, bool):
+        raise TypeError("Build diagnostic is_warning must be a boolean")
+    return is_warning
 
 
 @router.post(
@@ -183,7 +184,9 @@ def build_notification(
     except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="invalid_token")
 
-    is_failure = any(not d["is_warning"] for d in request.diagnostics)
+    is_failure = any(
+        not _diagnostic_is_warning(diagnostic) for diagnostic in request.diagnostics
+    )
     subject = (
         f"Build #{request.build_id} failed"
         if is_failure
@@ -200,8 +203,13 @@ def build_notification(
             "appId": request.app_id,
             "appName": request.app_id,  # todo get app name
             "diagnostics": request.diagnostics,
-            "anyWarnings": any(d["is_warning"] for d in request.diagnostics),
-            "anyErrors": any(not d["is_warning"] for d in request.diagnostics),
+            "anyWarnings": any(
+                _diagnostic_is_warning(diagnostic) for diagnostic in request.diagnostics
+            ),
+            "anyErrors": any(
+                not _diagnostic_is_warning(diagnostic)
+                for diagnostic in request.diagnostics
+            ),
             "buildId": request.build_id,
             "buildRepo": request.build_repo,
         },

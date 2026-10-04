@@ -11,7 +11,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
-from typing import cast
+from typing import TypeGuard
 
 import httpx
 from authlib.integrations.base_client.errors import OAuthError
@@ -111,6 +111,20 @@ _OAuthRefreshableAccount = (
 )
 
 
+def _is_oauth_refreshable_account(
+    account: models.ConnectedAccount,
+) -> TypeGuard[_OAuthRefreshableAccount]:
+    return isinstance(
+        account,
+        (
+            models.GitlabAccount,
+            models.GnomeAccount,
+            models.GoogleAccount,
+            models.KdeAccount,
+        ),
+    )
+
+
 def refresh_repo_list(gh_access_token: str, accountId: int):
     from .worker.refresh_github_repo_list import refresh_github_repo_list
 
@@ -170,9 +184,9 @@ def refresh_oauth_token(account: models.ConnectedAccount) -> str:
 
     with get_db("writer") as db:
         account = db.merge(account)
-        return _refresh_token(
-            cast("_OAuthRefreshableAccount", account), account.provider.value
-        )
+        if not _is_oauth_refreshable_account(account):
+            raise TypeError("Connected account does not support OAuth refresh")
+        return _refresh_token(account, account.provider.value)
 
 
 router = APIRouter(prefix="/auth")
@@ -671,9 +685,9 @@ def continue_oauth_flow(
     login: LoginInformation,
     data: OauthLoginResponse,
     method: str,
-    token_to_data: Callable[[dict], ProviderInfo],
+    token_to_data: Callable[[dict[str, object]], ProviderInfo],
     account_model: type[models.ConnectedAccount],
-    postlogin_handler: Callable | None = None,
+    postlogin_handler: Callable[..., object] | None = None,
 ):
     """
     Continue an oauth login flow.  This will complete the user's login using the
@@ -811,7 +825,11 @@ def continue_oauth_flow(
                 email=provider_data.email,
             )
             if "refresh_token" in login_result:
-                refreshable = cast("_OAuthRefreshableAccount", account)
+                if not _is_oauth_refreshable_account(account):
+                    raise TypeError(
+                        "OAuth provider account cannot store refresh tokens"
+                    )
+                refreshable = account
                 refreshable.refresh_token = login_result["refresh_token"]
                 refreshable.token_expiry = datetime.now() + timedelta(
                     seconds=int(login_result.get("expires_in", "7200"))
@@ -843,7 +861,11 @@ def continue_oauth_flow(
             account.display_name = provider_data.name
             account.email = provider_data.email
             if "refresh_token" in login_result:
-                refreshable = cast("_OAuthRefreshableAccount", account)
+                if not _is_oauth_refreshable_account(account):
+                    raise TypeError(
+                        "OAuth provider account cannot store refresh tokens"
+                    )
+                refreshable = account
                 refreshable.refresh_token = login_result["refresh_token"]
                 refreshable.token_expiry = datetime.now() + timedelta(
                     seconds=int(login_result.get("expires_in", "7200"))

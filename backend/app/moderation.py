@@ -3,7 +3,6 @@ import itertools
 import json
 import logging
 from datetime import UTC, datetime
-from typing import Any
 
 import jwt
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Path, Request, Response
@@ -17,7 +16,7 @@ from .database import get_db, get_json_key
 from .emails import EmailCategory
 from .login_info import LoginStatusDep, moderator_only
 from .moderation_constants import should_skip_review
-from .types import ModerationRequestType
+from .types import JSONValue, ModerationRequestType, is_json_object, is_json_value
 
 router = APIRouter(prefix="/moderation")
 logger = logging.getLogger(__name__)
@@ -36,8 +35,8 @@ class ModerationAppsResponse(BaseModel):
 
 
 class RequestData(BaseModel):
-    keys: dict[str, str | None | list | None | dict | None | bool | None]
-    current_values: dict[str, str | None | list | None | dict | None | bool | None]
+    keys: dict[str, JSONValue]
+    current_values: dict[str, JSONValue]
 
 
 class ModerationRequestResponse(BaseModel):
@@ -120,13 +119,29 @@ def create_github_build_rejection_issue(request: models.ModerationRequest):
     return ret
 
 
-def sort_lists_in_dict(data: dict) -> dict:
+def sort_lists_in_dict(data: JSONValue) -> JSONValue:
     if isinstance(data, dict):
+        sorted_data: dict[str, JSONValue] = {}
         for key, value in data.items():
-            data[key] = sort_lists_in_dict(value)
+            if isinstance(key, str) and is_json_value(value):
+                sorted_data[key] = sort_lists_in_dict(value)
+        return sorted_data
     elif isinstance(data, list):
-        data.sort()
+        strings = [item for item in data if isinstance(item, str)]
+        if len(strings) == len(data):
+            return sorted(strings)
+        numbers = [item for item in data if isinstance(item, (int, float, bool))]
+        if len(numbers) == len(data):
+            return sorted(numbers)
+        return [sort_lists_in_dict(item) for item in data if is_json_value(item)]
     return data
+
+
+def _sort_lists_in_object(data: dict[str, JSONValue]) -> dict[str, JSONValue]:
+    sorted_data = sort_lists_in_dict(data)
+    if not is_json_object(sorted_data):
+        raise TypeError("Moderation payload is not a JSON object")
+    return sorted_data
 
 
 @router.get(
@@ -414,13 +429,13 @@ def submit_review_request(
     for app_id, app_data in build_appstream.items():
         is_new_submission = True
 
-        keys: dict[str, Any] = {
+        keys: dict[str, JSONValue] = {
             "name": app_data.get("name"),
             "summary": app_data.get("summary"),
             "developer_name": app_data.get("developer_name"),
             "project_license": app_data.get("project_license"),
         }
-        current_values: dict[str, Any] = {}
+        current_values: dict[str, JSONValue] = {}
 
         # Check if the app data matches the current appstream
         if app := get_json_key(f"apps:{app_id}"):
@@ -477,13 +492,18 @@ def submit_review_request(
         if current_summary:
             build_summary_app = build_summary.get(app_id) or {}
             build_summary_metadata = build_summary_app.get("metadata") or {}
-            build_permissions = build_summary_metadata.get("permissions") or {}
+            build_permissions_value = build_summary_metadata.get("permissions")
+            build_permissions: dict[str, JSONValue] = (
+                build_permissions_value
+                if is_json_object(build_permissions_value)
+                else {}
+            )
             build_extradata = bool(build_summary_metadata.get("extra-data", False))
 
             app_runtime = build_summary_metadata.get(
                 "runtime"
             ) or build_summary_metadata.get("sdk")
-            if app_runtime:
+            if isinstance(app_runtime, str) and app_runtime:
                 app_runtime_dref = (
                     f"{app_runtime.split('/')[0]}//{app_runtime.split('/')[2]}"
                     if app_runtime.count("/") == 2
@@ -501,12 +521,36 @@ def submit_review_request(
                         build_perm = build_permissions.get(perm)
 
                         if isinstance(current_perm, list):
-                            if sorted(current_perm or []) != sorted(build_perm or []):
+                            current_strings = [
+                                value
+                                for value in current_perm
+                                if isinstance(value, str)
+                            ]
+                            build_strings = (
+                                [
+                                    value
+                                    for value in build_perm
+                                    if isinstance(value, str)
+                                ]
+                                if isinstance(build_perm, list)
+                                else []
+                            )
+                            if (
+                                len(current_strings) != len(current_perm)
+                                or len(build_strings)
+                                != (
+                                    len(build_perm)
+                                    if isinstance(build_perm, list)
+                                    else 0
+                                )
+                                or sorted(current_strings) != sorted(build_strings)
+                            ):
                                 current_values[perm] = current_perm
-                                keys[perm] = build_perm
+                                if is_json_value(build_perm):
+                                    keys[perm] = build_perm
 
                         if isinstance(current_perm, dict):
-                            if build_perm is None:
+                            if not isinstance(build_perm, dict):
                                 build_perm = {}
 
                             dict_keys = current_perm.keys() | build_perm.keys()
@@ -522,7 +566,8 @@ def submit_review_request(
                                 )
                                 if is_different:
                                     current_values[f"{key}-{perm}"] = current_val
-                                    keys[f"{key}-{perm}"] = build_val
+                                    if is_json_value(build_val):
+                                        keys[f"{key}-{perm}"] = build_val
 
             if app_id not in direct_upload_apps_by_id:
                 current_arches = set(current_summary.get("arches", []))
@@ -533,14 +578,24 @@ def submit_review_request(
                     keys["arches"] = list(build_arches)
 
         if len(keys) > 0:
-            keys = sort_lists_in_dict(keys)
-            current_values = sort_lists_in_dict(current_values)
+            keys = _sort_lists_in_object(keys)
+            current_values = _sort_lists_in_object(current_values)
 
             request_ignored = False
 
             if "sockets" in keys and "sockets" in current_values:
-                cur_sockets = set(current_values["sockets"])
-                new_sockets = set(keys["sockets"])
+                current_sockets = current_values["sockets"]
+                requested_sockets = keys["sockets"]
+                if not (
+                    isinstance(current_sockets, list)
+                    and all(isinstance(socket, str) for socket in current_sockets)
+                    and isinstance(requested_sockets, list)
+                    and all(isinstance(socket, str) for socket in requested_sockets)
+                ):
+                    current_sockets = []
+                    requested_sockets = []
+                cur_sockets = set(current_sockets)
+                new_sockets = set(requested_sockets)
 
                 x11_compat_transition = (
                     cur_sockets
@@ -860,7 +915,7 @@ def submit_review(
     else:
         app_name = None
 
-    payload: dict[str, Any] = {
+    payload: dict[str, JSONValue] = {
         "messageId": f"{appid}/{build_id}/{'approved' if is_approved else 'rejected'}",
         "creation_timestamp": datetime.now().timestamp(),
         "subject": subject,

@@ -3,7 +3,7 @@ import enum
 import json
 from datetime import date, datetime, timedelta
 from math import ceil
-from typing import Any, Optional, Union, cast
+from typing import Optional, TypedDict, Union
 from uuid import uuid4
 
 from fastapi import HTTPException
@@ -42,6 +42,7 @@ from sqlalchemy.orm import (
 
 from . import utils
 from .db_session import DBSession
+from .types import JSONValue
 
 
 class Pagination(BaseModel):
@@ -58,6 +59,18 @@ class QualityModerationStatus(BaseModel):
     not_passed: int
     last_updated: datetime | None
     review_requested_at: datetime | None = None
+
+
+class QualityModerationGuidelineCount(TypedDict):
+    guideline_id: str
+    not_passed: int
+
+
+class QualityModerationCategoryCount(TypedDict):
+    category: str
+    passed: int
+    not_passed: int
+    unrated: int
 
 
 class Base(DeclarativeBase):
@@ -296,10 +309,9 @@ class FlathubUser(Base):
             get_github_repos
             and default_account is not None
             and default_account.provider == ConnectedAccountProvider.GITHUB
+            and isinstance(default_account, GithubAccount)
         ):
-            github_repos = GithubRepository.all_by_account(
-                db, cast("GithubAccount", default_account)
-            )
+            github_repos = GithubRepository.all_by_account(db, default_account)
 
         return UserResult(
             id=self.id,
@@ -2173,7 +2185,7 @@ class Guideline(Base):
 class QualityModerationDashboardRow(BaseModel):
     id: str
     quality_moderation_status: QualityModerationStatus
-    appstream: Any | None = None
+    appstream: dict[str, JSONValue] | None = None
     installs_last_7_days: int | None = None
 
 
@@ -2199,7 +2211,7 @@ class QualityModeration(Base):
     )
 
     @classmethod
-    def group_by_guideline(cls, db) -> list[dict[str, Any]]:
+    def group_by_guideline(cls, db) -> list[QualityModerationGuidelineCount]:
         """
         Return a list of guideline ids and the number of apps which have failed that guideline
         """
@@ -2221,7 +2233,7 @@ class QualityModeration(Base):
         ]
 
     @classmethod
-    def group_by_category(cls, db) -> list[dict[str, Any]]:
+    def group_by_category(cls, db) -> list[QualityModerationCategoryCount]:
         """
         Return moderation status counts grouped by guideline category.
         """
@@ -2922,7 +2934,7 @@ class App(Base):
         Index("apps_sub_categories_idx", sub_categories, postgresql_using="gin"),
     )
 
-    def get_translated_appstream(self, locale: str) -> dict[str, Any] | None:
+    def get_translated_appstream(self, locale: str) -> dict[str, JSONValue] | None:
         if not self.appstream:
             return None
 
@@ -2999,7 +3011,7 @@ class App(Base):
         return db.session.query(App).filter(App.app_id == app_id).first()
 
     @classmethod
-    def get_appstream(cls, db, app_id: str) -> dict | None:
+    def get_appstream(cls, db, app_id: str) -> dict[str, JSONValue] | None:
         app = (
             db.session.query(App.appstream, App.content_rating_details)
             .filter(App.app_id == app_id)
@@ -3013,7 +3025,7 @@ class App(Base):
         return None
 
     @classmethod
-    def get_content_rating_details(cls, db, app_id: str) -> dict | None:
+    def get_content_rating_details(cls, db, app_id: str) -> dict[str, JSONValue] | None:
         """
         Retrieve content rating details for a given app_id
         """
@@ -3676,7 +3688,9 @@ class Exceptions(Base):
     updated_at = mapped_column(DateTime, nullable=False, server_default=func.now())
 
     @classmethod
-    def set_exception(cls, db, app_id: str, value: dict) -> "Exceptions":
+    def set_exception(
+        cls, db, app_id: str, value: dict[str, JSONValue]
+    ) -> "Exceptions":
         exception = db.query(cls).filter(cls.app_id == app_id).first()
 
         if exception:
@@ -3689,14 +3703,14 @@ class Exceptions(Base):
         return exception
 
     @classmethod
-    def get_exception(cls, db, app_id: str) -> dict | None:
+    def get_exception(cls, db, app_id: str) -> dict[str, JSONValue] | None:
         exception = db.query(cls).filter(cls.app_id == app_id).first()
         if exception:
             return exception.value
         return None
 
     @classmethod
-    def get_all_exceptions(cls, db) -> dict:
+    def get_all_exceptions(cls, db) -> dict[str, dict[str, JSONValue]]:
         exceptions = db.query(cls).all()
         return {exception.app_id: exception.value for exception in exceptions}
 
@@ -3802,6 +3816,14 @@ class AppExtensionLookup(Base):
         db.commit()
 
 
+class AppStatsData(TypedDict):
+    installs_total: int
+    installs_last_month: int
+    installs_last_7_days: int
+    installs_per_day: dict[str, int]
+    installs_per_country: dict[str, int]
+
+
 class AppStats(Base):
     __tablename__ = "app_stats"
 
@@ -3816,8 +3838,12 @@ class AppStats(Base):
     installs_last_7_days: Mapped[int] = mapped_column(
         Integer, nullable=False, server_default=text("0")
     )
-    installs_per_day: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    installs_per_country: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    installs_per_day: Mapped[dict[str, int] | None] = mapped_column(
+        JSONB, nullable=True
+    )
+    installs_per_country: Mapped[dict[str, int] | None] = mapped_column(
+        JSONB, nullable=True
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, server_default=func.now()
     )
@@ -3832,7 +3858,7 @@ class AppStats(Base):
         return db.query(cls).filter(cls.app_id == app_id).first()
 
     @classmethod
-    def set_stats(cls, db, app_id: str, stats_data: dict) -> "AppStats":
+    def set_stats(cls, db, app_id: str, stats_data: AppStatsData) -> "AppStats":
         app_stats = db.query(cls).filter(cls.app_id == app_id).first()
 
         if app_stats:
@@ -3857,11 +3883,11 @@ class AppStats(Base):
         return app_stats
 
     @classmethod
-    def bulk_set_stats(cls, db, stats_dict: dict[str, dict]) -> None:
+    def bulk_set_stats(cls, db, stats_dict: dict[str, AppStatsData]) -> None:
         for app_id, stats_data in stats_dict.items():
             cls.set_stats(db, app_id, stats_data)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> AppStatsData:
         return {
             "installs_total": self.installs_total,
             "installs_last_month": self.installs_last_month,
@@ -3875,7 +3901,7 @@ class YearInReviewStats(Base):
     __tablename__ = "year_in_review_stats"
 
     year: Mapped[int] = mapped_column(Integer, primary_key=True)
-    data: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    data: Mapped[dict[str, JSONValue]] = mapped_column(JSONB, nullable=False)
     computed_at: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,
@@ -3888,7 +3914,9 @@ class YearInReviewStats(Base):
         return db.query(cls).filter(cls.year == year).first()
 
     @classmethod
-    def set_for_year(cls, db, year: int, data: dict) -> "YearInReviewStats":
+    def set_for_year(
+        cls, db, year: int, data: dict[str, JSONValue]
+    ) -> "YearInReviewStats":
         record = cls.get_for_year(db, year)
 
         if record:
@@ -3949,7 +3977,7 @@ class AuditLog(Base):
     provider: Mapped[str | None] = mapped_column(String, nullable=True)
     ip_address: Mapped[str | None] = mapped_column(String, nullable=True)
     user_agent: Mapped[str | None] = mapped_column(String, nullable=True)
-    details: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    details: Mapped[dict[str, JSONValue] | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, server_default=func.now(), index=True
     )
@@ -3971,7 +3999,7 @@ class AuditLog(Base):
         provider: str | None = None,
         ip_address: str | None = None,
         user_agent: str | None = None,
-        details: dict | None = None,
+        details: dict[str, JSONValue] | None = None,
     ) -> "AuditLog":
         entry = cls(
             user_id=user_id,
