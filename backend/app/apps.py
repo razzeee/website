@@ -1,10 +1,17 @@
+from __future__ import annotations
+
 import logging
 import re
 from enum import StrEnum
+from typing import TYPE_CHECKING
 
 import gi
 
 from . import database, localize, models, schemas, search, utils
+from .types import JSONValue, is_json_object
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 gi.require_version("AppStream", "1.0")
 from gi.repository import AppStream  # ty: ignore[unresolved-import]
@@ -33,18 +40,33 @@ class SortBy(StrEnum):
     LAST_UPDATED_AT = "last-updated-at"
 
 
-def add_to_search(app_id: str, app: dict, apps_locale: dict) -> dict:
+def add_to_search(
+    app_id: str,
+    app: dict[str, JSONValue],
+    apps_locale: dict[str, dict[str, JSONValue]],
+) -> dict[str, JSONValue]:
+    description = app.get("description")
     search_description = (
-        re.sub(clean_html_re, "", app["description"])
-        if app and app.get("description")
-        else ""
+        re.sub(clean_html_re, "", description) if isinstance(description, str) else ""
     )
 
-    search_keywords = app.get("keywords")
+    keywords_value = app.get("keywords")
+    search_keywords = (
+        [keyword for keyword in keywords_value if isinstance(keyword, str)]
+        if isinstance(keywords_value, list)
+        else None
+    )
 
     project_license = app.get("project_license", "")
+    if not isinstance(project_license, str):
+        project_license = ""
 
-    categories = app.get("categories", [])
+    category_values = app.get("categories", [])
+    categories = (
+        [category for category in category_values if isinstance(category, str)]
+        if isinstance(category_values, list)
+        else []
+    )
     main_categories = [
         category for category in categories if category.lower() in all_main_categories
     ]
@@ -61,7 +83,11 @@ def add_to_search(app_id: str, app: dict, apps_locale: dict) -> dict:
         sub_categories = sub_categories + main_categories[1:]
         main_categories = main_categories[0]
 
-    type = "desktop-application" if app.get("type") == "desktop" else app.get("type")
+    app_type = app.get("type")
+    if app_type == "desktop":
+        app_type = "desktop-application"
+    if not isinstance(app_type, str):
+        app_type = "generic"
 
     translations = {}
     localized_keywords_set: set[str] = set(search_keywords or [])
@@ -101,10 +127,10 @@ def add_to_search(app_id: str, app: dict, apps_locale: dict) -> dict:
     # order of the dict is important for attribute ranking
     return {
         "id": utils.get_clean_app_id(app_id),
-        "type": type,
-        "name": app["name"],
+        "type": app_type,
+        "name": app.get("name") if isinstance(app.get("name"), str) else "",
         "isMobileFriendly": app.get("isMobileFriendly", False),
-        "summary": app["summary"],
+        "summary": app.get("summary") if isinstance(app.get("summary"), str) else "",
         "translations": translations,
         "keywords": search_keywords,
         "localized_keywords": localized_keywords,
@@ -112,7 +138,7 @@ def add_to_search(app_id: str, app: dict, apps_locale: dict) -> dict:
         "is_free_license": AppStream.license_is_free_license(project_license),
         "app_id": app_id,
         "description": search_description,
-        "icon": app["icon"],
+        "icon": app.get("icon") if isinstance(app.get("icon"), str) else None,
         "main_categories": main_categories,
         "sub_categories": sub_categories,
         "developer_name": app.get("developer_name"),
@@ -147,22 +173,33 @@ def load_appstream(sqldb) -> None:
     all_apps = get_appids(include_eol=True)
     non_eol_apps = get_appids(include_eol=False)
 
-    search_apps = []
+    search_apps: list[Mapping[str, object]] = []
     developers = set()
 
     for app_id in apps:
         if app_id in non_eol_apps:
+            locales_value = apps[app_id].get("locales")
+            locales = (
+                {
+                    locale: translations
+                    for locale, translations in locales_value.items()
+                    if isinstance(locale, str) and is_json_object(translations)
+                }
+                if isinstance(locales_value, dict)
+                else {}
+            )
             search_apps.append(
                 add_to_search(
                     app_id,
                     apps[app_id],
-                    apps[app_id]["locales"],
+                    locales,
                 )
             )
 
-        if developer_name := apps[app_id].get("developer_name"):
+        developer_name = apps[app_id].get("developer_name")
+        if isinstance(developer_name, str) and developer_name:
             models.Developers.create(sqldb, developer_name)
-            developers.add(apps[app_id].get("developer_name"))
+            developers.add(developer_name)
 
         if type := apps[app_id].get("type"):
             # "desktop" dates back to appstream-glib, need to handle that for backwards compat
@@ -317,6 +354,6 @@ def get_addons(app_id: str, branch: str = "stable") -> list[str]:
     return result
 
 
-def get_appstream(app_id: str) -> dict | None:
+def get_appstream(app_id: str) -> dict[str, JSONValue] | None:
     with database.get_db() as sqldb:
         return models.App.get_appstream(sqldb, app_id)

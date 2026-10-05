@@ -1,10 +1,10 @@
 import datetime
-from typing import Any
 
 from fastapi import APIRouter, FastAPI, HTTPException, Path, Response
 from pydantic import BaseModel
 
 from .. import cache, database, models, permission_stats, stats
+from ..types import JSONValue, PermissionCount
 
 router = APIRouter(
     prefix="/stats",
@@ -42,10 +42,10 @@ class PermissionStatsSnapshotResult(BaseModel):
     snapshot_date: datetime.date
     eligible_apps: int
     apps_with_stable_metadata: int
-    permission_counts: dict[str, Any]
+    permission_counts: dict[str, PermissionCount]
 
 
-def _normalize_stats_result(value: dict) -> StatsResult:
+def _normalize_stats_result(value: dict[str, JSONValue]) -> StatsResult:
     if "os_versions" not in value or value["os_versions"] is None:
         value["os_versions"] = {}
     if "flatpak_versions" not in value or value["flatpak_versions"] is None:
@@ -94,7 +94,7 @@ async def get_stats(response: Response) -> StatsResult | None:
 async def get_permission_stats(
     start_date: datetime.date | None = None,
     end_date: datetime.date | None = None,
-) -> list[dict[str, Any]]:
+) -> list[PermissionStatsSnapshotResult]:
     try:
         permission_stats.validate_date_range(start_date, end_date)
     except ValueError as error:
@@ -111,7 +111,7 @@ async def get_permission_stats(
             eligible_apps=snapshot.eligible_apps,
             apps_with_stable_metadata=snapshot.apps_with_stable_metadata,
             permission_counts=snapshot.permission_counts,
-        ).model_dump(mode="json")
+        )
         for snapshot in snapshots
     ]
 
