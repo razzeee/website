@@ -109,5 +109,5 @@ export default async function DistroSetupPage({ params }: Props) {
     notFound()
   }
 
-  return <DistroSetupClient distroData={distroData} locale={locale} />
+  return <DistroSetupClient distroData={distroData} />
 }

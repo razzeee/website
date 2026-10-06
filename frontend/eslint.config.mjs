@@ -20,7 +20,6 @@ export default typescriptEslint.config(
       "**/storybook-static/**",
       "src/codegen/**/*",
       "src/codegen-pipeline/**/*",
-      "src/components/setup/Distros.tsx",
       "**/*.config.{js,mjs,cjs,ts}",
       "**/*.d.ts",
     ],

@@ -3,16 +3,15 @@
 import { useTranslations } from "next-intl"
 import Breadcrumbs from "../../../../src/components/Breadcrumbs"
 import { DistroSetup } from "../../../../src/distro-setup"
-import { distroMap } from "../../../../src/components/setup/Distros"
+import { DistroInstructions } from "../../../../src/components/setup/Distros"
 import React from "react"
 import { LayoutGroup } from "framer-motion"
 
 interface Props {
   distroData: DistroSetup
-  locale: string
 }
 
-export default function DistroSetupClient({ distroData, locale }: Props) {
+export default function DistroSetupClient({ distroData }: Props) {
   const t = useTranslations()
 
   const translatedDistroName = t(distroData.translatedNameKey)
@@ -25,7 +24,7 @@ export default function DistroSetupClient({ distroData, locale }: Props) {
     },
     {
       name: translatedDistroName,
-      href: `/setup/${encodeURIComponent(distroData.name)}`,
+      href: `/setup/${encodeURIComponent(distroData.slug ?? distroData.name)}`,
       current: true,
     },
   ]
@@ -39,7 +38,7 @@ export default function DistroSetupClient({ distroData, locale }: Props) {
 
         <div className="prose mx-auto dark:prose-invert prose-pre:rounded-xl">
           <div key={distroData.name} className="space-y-4">
-            {distroMap(locale).get(distroData.name.replaceAll("/", ""))}
+            <DistroInstructions distro={distroData} />
           </div>
         </div>
       </div>

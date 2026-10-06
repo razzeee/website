@@ -1,0 +1,621 @@
+[
+  {
+    "name": "Ubuntu",
+    "logo": "ubuntu.svg",
+    "translationKey": "ubuntu",
+    "priority": 100,
+    "steps": [
+      {
+        "translationKey": "step-1",
+        "commands": { "code": "sudo apt install flatpak" }
+      },
+      {
+        "translationKey": "step-2",
+        "commands": { "code": "sudo apt install gnome-software-plugin-flatpak" }
+      },
+      {
+        "translationKey": "step-3",
+        "commands": {
+          "code": "flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo"
+        }
+      },
+      { "translationKey": "step-4" }
+    ]
+  },
+  {
+    "name": "Fedora",
+    "logo": "fedora.svg",
+    "translationKey": "fedora",
+    "priority": 85,
+    "introduction": {
+      "translationKey": "introduction",
+      "commands": {
+        "code": "flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo"
+      },
+      "links": {
+        "repolink": {
+          "href": "https://docs.fedoraproject.org/en-US/workstation-working-group/third-party-repos/"
+        }
+      }
+    },
+    "steps": []
+  },
+  {
+    "name": "Manjaro",
+    "logo": "manjaro.svg",
+    "translationKey": "manjaro",
+    "priority": 65,
+    "steps": [{ "translationKey": "step-1" }, { "translationKey": "step-2" }]
+  },
+  {
+    "name": "Endless OS",
+    "logo": "endless.svg",
+    "translationKey": "endless_os",
+    "introduction": { "translationKey": "introduction", "textTag": "h2" },
+    "steps": []
+  },
+  {
+    "name": "ALT Linux",
+    "logo": "altlinux.svg",
+    "logo_dark": "altlinux-dark.svg",
+    "translationKey": "alt_linux",
+    "steps": [
+      {
+        "translationKey": "step-1",
+        "commands": {
+          "code": "su -\n apt-get update\n apt-get install flatpak"
+        }
+      },
+      {
+        "translationKey": "step-2",
+        "commands": {
+          "code": "su -\n apt-get update\n apt-get install flatpak-repo-flathub"
+        }
+      },
+      { "translationKey": "step-3" }
+    ]
+  },
+  {
+    "name": "Chrome OS",
+    "logo": "chrome-os.svg",
+    "translationKey": "chrome_os",
+    "priority": 90,
+    "introduction": {
+      "translationKey": "introduction",
+      "links": {
+        "link": {
+          "href": "https://www.reddit.com/r/Crostini/wiki/getstarted/crostini-enabled-devices"
+        }
+      }
+    },
+    "steps": [
+      {
+        "translationKey": "step-1",
+        "links": {
+          "settingslink": {
+            "href": "chrome://os-settings",
+            "text": "chrome://os-settings"
+          }
+        }
+      },
+      { "translationKey": "step-2" },
+      {
+        "translationKey": "step-3",
+        "commands": { "code": "sudo apt install flatpak" }
+      },
+      {
+        "translationKey": "step-4",
+        "commands": {
+          "code": "flatpak --user remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo"
+        }
+      },
+      { "translationKey": "step-5" }
+    ]
+  },
+  {
+    "name": "Red Hat Enterprise Linux",
+    "logo": "redhat.svg",
+    "translationKey": "red_hat_enterprise_linux",
+    "introduction": {
+      "translationKey": "introduction",
+      "commands": {
+        "code": "sudo yum install flatpak",
+        "codeAddRemote": "flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo"
+      }
+    },
+    "steps": []
+  },
+  {
+    "name": "Linux Mint",
+    "logo": "mint.svg",
+    "translationKey": "linux_mint",
+    "priority": 75,
+    "introduction": { "translationKey": "introduction", "textTag": "h2" },
+    "steps": []
+  },
+  {
+    "name": "openSUSE",
+    "logo": "opensuse.svg",
+    "translationKey": "opensuse",
+    "priority": 70,
+    "steps": [
+      {
+        "translationKey": "step-1",
+        "commands": { "code": "sudo zypper install flatpak" },
+        "links": {
+          "link": {
+            "href": "https://software.opensuse.org/package/flatpak",
+            "text": "software.opensuse.org"
+          }
+        }
+      },
+      {
+        "translationKey": "step-2",
+        "commands": {
+          "code": "flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo"
+        }
+      },
+      { "translationKey": "step-3" }
+    ]
+  },
+  {
+    "name": "Arch",
+    "logo": "arch.svg",
+    "translationKey": "arch",
+    "priority": 80,
+    "steps": [
+      {
+        "translationKey": "step-1",
+        "commands": { "code": "sudo pacman -S flatpak" }
+      },
+      { "translationKey": "step-2" }
+    ]
+  },
+  {
+    "name": "Debian",
+    "logo": "debian.svg",
+    "translationKey": "debian",
+    "priority": 95,
+    "steps": [
+      {
+        "translationKey": "step-1",
+        "commands": { "code": "sudo apt install flatpak" }
+      },
+      {
+        "translationKey": "step-2",
+        "commands": {
+          "code": "sudo apt install gnome-software-plugin-flatpak",
+          "codeDiscover": "sudo apt install plasma-discover-backend-flatpak"
+        }
+      },
+      {
+        "translationKey": "step-3",
+        "commands": {
+          "code": "flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo"
+        }
+      },
+      { "translationKey": "step-4" }
+    ]
+  },
+  {
+    "name": "Rocky Linux",
+    "logo": "rockylinux.svg",
+    "translationKey": "rocky_linux",
+    "steps": [
+      {
+        "translationKey": "step-1",
+        "commands": { "code": "sudo dnf install flatpak" }
+      },
+      {
+        "translationKey": "step-2",
+        "commands": {
+          "code": "flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo"
+        }
+      },
+      { "translationKey": "step-3" }
+    ]
+  },
+  {
+    "name": "CentOS Stream",
+    "logo": "centos.svg",
+    "translationKey": "centos",
+    "introduction": { "translationKey": "introduction" },
+    "steps": []
+  },
+  {
+    "name": "AlmaLinux",
+    "logo": "almalinux.svg",
+    "translationKey": "almalinux",
+    "introduction": { "translationKey": "introduction" },
+    "steps": []
+  },
+  {
+    "name": "Gentoo",
+    "logo": "gentoo.svg",
+    "translationKey": "gentoo",
+    "steps": [
+      {
+        "translationKey": "step-1",
+        "commands": { "code": "emerge --ask --verbose sys-apps/flatpak" }
+      },
+      {
+        "translationKey": "step-2",
+        "commands": {
+          "code": "flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo"
+        }
+      },
+      { "translationKey": "step-3" }
+    ]
+  },
+  {
+    "name": "Kubuntu",
+    "logo": "kubuntu.svg",
+    "translationKey": "kubuntu",
+    "steps": [
+      { "translationKey": "step-1" },
+      {
+        "translationKey": "step-2",
+        "commands": { "code": "sudo apt install kde-config-flatpak" }
+      },
+      { "translationKey": "step-3" },
+      { "translationKey": "step-4" }
+    ]
+  },
+  {
+    "name": "Solus",
+    "logo": "solus.svg",
+    "translationKey": "solus",
+    "introduction": { "translationKey": "introduction" },
+    "steps": [
+      {
+        "translationKey": "step-1",
+        "commands": { "code": "sudo eopkg install flatpak" }
+      },
+      {
+        "translationKey": "step-2",
+        "commands": {
+          "code": "flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo"
+        }
+      },
+      { "translationKey": "step-3" }
+    ]
+  },
+  {
+    "name": "Alpine",
+    "logo": "alpine.svg",
+    "translationKey": "alpine",
+    "steps": [
+      {
+        "translationKey": "step-1",
+        "commands": { "code": "doas apk add flatpak" }
+      },
+      {
+        "translationKey": "step-2",
+        "commands": {
+          "code": "doas apk add gnome-software-plugin-flatpak",
+          "codeDiscover": "doas apk add discover-backend-flatpak"
+        }
+      },
+      {
+        "translationKey": "step-3",
+        "commands": {
+          "code": "flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo"
+        }
+      },
+      { "translationKey": "step-4" }
+    ]
+  },
+  {
+    "name": "Mageia",
+    "logo": "mageia.svg",
+    "translationKey": "mageia",
+    "steps": [
+      {
+        "translationKey": "step-1",
+        "commands": {
+          "code": "dnf install flatpak",
+          "codeUrpmi": "urpmi flatpak"
+        }
+      },
+      {
+        "translationKey": "step-2",
+        "commands": {
+          "code": "flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo"
+        }
+      },
+      { "translationKey": "step-3" }
+    ]
+  },
+  {
+    "name": "OpenMandriva Lx",
+    "logo": "openmandriva.svg",
+    "translationKey": "openmandriva_lx",
+    "introduction": { "translationKey": "introduction" },
+    "steps": []
+  },
+  {
+    "name": "Pop!_OS",
+    "logo": "pop-os.svg",
+    "translationKey": "pop_os",
+    "introduction": { "translationKey": "introduction", "textTag": "h2" },
+    "steps": []
+  },
+  {
+    "name": "elementary OS",
+    "logo": "elementary-os.svg",
+    "logo_dark": "elementary-os-dark.svg",
+    "translationKey": "elementary_os",
+    "steps": [{ "translationKey": "step-1" }]
+  },
+  {
+    "name": "Raspberry Pi OS",
+    "logo": "raspberry-pi-os.svg",
+    "translationKey": "raspberry_pi_os",
+    "steps": [
+      {
+        "translationKey": "step-1",
+        "commands": { "code": "sudo apt install flatpak" }
+      },
+      {
+        "translationKey": "step-2",
+        "commands": {
+          "code": "flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo"
+        }
+      },
+      { "translationKey": "step-3" }
+    ]
+  },
+  {
+    "name": "Void Linux",
+    "logo": "void.svg",
+    "logo_dark": "void-dark.svg",
+    "translationKey": "void_linux",
+    "steps": [
+      {
+        "translationKey": "step-1",
+        "commands": { "code": "sudo xbps-install -S flatpak" }
+      },
+      {
+        "translationKey": "step-2",
+        "commands": {
+          "code": "flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo"
+        }
+      },
+      { "translationKey": "step-3" }
+    ]
+  },
+  {
+    "name": "NixOS",
+    "logo": "nixos.svg",
+    "translationKey": "nixos",
+    "steps": [
+      {
+        "translationKey": "step-1",
+        "commands": {
+          "code": "services.flatpak.enable = true;",
+          "codeRebuild": "sudo nixos-rebuild switch"
+        },
+        "links": {
+          "doclink": {
+            "href": "https://nixos.org/manual/nixos/stable/index.html#module-services-flatpak"
+          }
+        }
+      },
+      {
+        "translationKey": "step-2",
+        "commands": {
+          "code": "flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo"
+        }
+      },
+      { "translationKey": "step-3" }
+    ]
+  },
+  {
+    "name": "PureOS",
+    "logo": "pureos.svg",
+    "logo_dark": "pureos-dark.svg",
+    "translationKey": "pureos",
+    "introduction": { "translationKey": "introduction" },
+    "steps": []
+  },
+  {
+    "name": "Zorin OS",
+    "logo": "zorin-os.svg",
+    "translationKey": "zorin_os",
+    "introduction": { "translationKey": "introduction" },
+    "steps": []
+  },
+  {
+    "name": "Deepin",
+    "logo": "deepin.svg",
+    "translationKey": "deepin",
+    "steps": [
+      {
+        "translationKey": "step-1",
+        "commands": { "code": "sudo apt install flatpak" }
+      },
+      {
+        "translationKey": "step-2",
+        "commands": {
+          "code": "flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo"
+        }
+      },
+      {
+        "translationKey": "step-3",
+        "commands": {
+          "code": "flatpak install flathub org.gtk.Gtk3theme.deepin\n flatpak install flathub org.gtk.Gtk3theme.deepin-dark"
+        }
+      },
+      { "translationKey": "step-4" }
+    ]
+  },
+  {
+    "name": "Pardus",
+    "logo": "pardus.svg",
+    "translationKey": "pardus",
+    "steps": [
+      {
+        "translationKey": "step-1",
+        "commands": { "code": "sudo apt install flatpak" }
+      },
+      {
+        "translationKey": "step-2",
+        "commands": { "code": "sudo apt install gnome-software-plugin-flatpak" }
+      },
+      {
+        "translationKey": "step-3",
+        "commands": {
+          "code": "flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo"
+        }
+      },
+      { "translationKey": "step-4" }
+    ]
+  },
+  {
+    "name": "MX Linux",
+    "logo": "mxlinux.svg",
+    "translationKey": "mx_linux",
+    "steps": [{ "translationKey": "step-1" }, { "translationKey": "step-2" }]
+  },
+  {
+    "name": "Pisi GNU/Linux",
+    "slug": "Pisi GNU Linux",
+    "logo": "pisi.svg",
+    "logo_dark": "pisi-dark.svg",
+    "translationKey": "pisi_gnulinux",
+    "steps": [
+      {
+        "translationKey": "step-1",
+        "commands": { "code": "sudo pisi it flatpak" }
+      },
+      {
+        "translationKey": "step-2",
+        "commands": {
+          "code": "flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo"
+        }
+      },
+      { "translationKey": "step-3" }
+    ]
+  },
+  {
+    "name": "EndeavourOS",
+    "logo": "endeavouros.svg",
+    "logo_dark": "endeavouros-dark.svg",
+    "translationKey": "endeavouros",
+    "steps": [
+      {
+        "translationKey": "step-1",
+        "commands": {
+          "code": "sudo pacman -S flatpak",
+          "codeUpdate": "sudo pacman -Syu"
+        }
+      },
+      {
+        "translationKey": "step-2",
+        "commands": {
+          "code": "flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo"
+        }
+      },
+      { "translationKey": "step-3" }
+    ]
+  },
+  {
+    "name": "KDE neon",
+    "logo": "kdeneon.svg",
+    "translationKey": "kde_neon",
+    "introduction": { "translationKey": "introduction", "textTag": "h2" },
+    "steps": []
+  },
+  {
+    "name": "GNU Guix",
+    "logo": "guix.svg",
+    "logo_dark": "guix-dark.svg",
+    "translationKey": "gnu_guix",
+    "steps": [
+      {
+        "translationKey": "step-1",
+        "commands": { "code": "guix install flatpak" }
+      },
+      {
+        "translationKey": "step-2",
+        "commands": {
+          "code": "flatpak --user remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo"
+        }
+      },
+      { "translationKey": "step-3" }
+    ]
+  },
+  {
+    "name": "Crystal Linux",
+    "logo": "crystallinux.svg",
+    "translationKey": "crystal_linux",
+    "introduction": { "translationKey": "introduction" },
+    "steps": [
+      {
+        "translationKey": "step-1",
+        "commands": { "codeUpdate": "ame upg", "code": "ame ins flatpak" }
+      },
+      {
+        "translationKey": "step-2",
+        "commands": {
+          "code": "flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo"
+        }
+      },
+      { "translationKey": "step-3" }
+    ]
+  },
+  {
+    "name": "Vanilla OS",
+    "logo": "vanillaos.svg",
+    "translationKey": "vanilla_os",
+    "introduction": {
+      "translationKey": "introduction",
+      "commands": {
+        "code": "host-shell flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo"
+      }
+    },
+    "steps": []
+  },
+  {
+    "name": "Salix",
+    "logo": "salix.svg",
+    "translationKey": "salix",
+    "introduction": { "translationKey": "introduction" },
+    "steps": []
+  },
+  {
+    "name": "Slackware",
+    "logo": "slackware.svg",
+    "translationKey": "slackware",
+    "steps": [
+      {
+        "translationKey": "step-1",
+        "commands": {
+          "code": "sbopkg -i flatpak",
+          "codeQueue": "sqg -p flatpak"
+        }
+      },
+      {
+        "translationKey": "step-2",
+        "commands": {
+          "code": "flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo"
+        }
+      },
+      { "translationKey": "step-3" }
+    ]
+  },
+  {
+    "name": "T2 SDE",
+    "logo": "t2sde.svg",
+    "translationKey": "t2_sde",
+    "introduction": { "translationKey": "introduction" },
+    "steps": []
+  },
+  {
+    "name": "postmarketOS",
+    "logo": "postmarketOS.svg",
+    "translationKey": "postmarketos",
+    "introduction": { "translationKey": "introduction" },
+    "steps": []
+  }
+]

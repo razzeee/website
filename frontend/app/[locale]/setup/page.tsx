@@ -97,12 +97,13 @@ export default async function SetupPage() {
       />
       <SetupClient
         instructions={instructions.map(
-          ({ name, slug, logo, logo_dark, translatedNameKey }) => ({
+          ({ name, slug, logo, logo_dark, translatedNameKey, priority }) => ({
             name,
             slug,
             logo,
             logo_dark,
             translatedNameKey,
+            priority,
           }),
         )}
       />

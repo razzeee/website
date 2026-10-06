@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react"
-import { distroMap } from "./Distros"
+import { DistroInstructions } from "./Distros"
+import { setupInstructions } from "../../distro-setup"
 
 const meta = {
   title: "Setup/Distros",
@@ -8,7 +9,12 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-const allDistros = distroMap("en")
+const allDistros = new Map(
+  setupInstructions.map((distro) => [
+    distro.name.replaceAll("/", ""),
+    <DistroInstructions key={distro.name} distro={distro} />,
+  ]),
+)
 
 export const Ubuntu: Story = {
   render: () => (
@@ -111,7 +117,7 @@ export const RockyLinux: Story = {
 export const CentOSStream: Story = {
   render: () => (
     <div className="prose mx-auto dark:prose-invert prose-pre:rounded-xl">
-      <div className="space-y-4">{allDistros.get("CentOS")}</div>
+      <div className="space-y-4">{allDistros.get("CentOS Stream")}</div>
     </div>
   ),
 }

@@ -3,7 +3,7 @@
 import Image from "next/image"
 import { useTranslations } from "next-intl"
 import clsx from "clsx"
-import type { DistroSetup } from "../../../src/distro-setup"
+import type { DistroSummary } from "../../../src/distro-setup"
 import { memo, useDeferredValue, useMemo, useState } from "react"
 import { MagnifyingGlassIcon } from "@heroicons/react/20/solid"
 import { Input } from "../../../@/components/ui/input"
@@ -11,23 +11,8 @@ import { Link } from "src/i18n/navigation"
 import { motion, LayoutGroup, useReducedMotion } from "framer-motion"
 
 interface Props {
-  instructions: Pick<
-    DistroSetup,
-    "name" | "slug" | "logo" | "logo_dark" | "translatedNameKey"
-  >[]
+  instructions: DistroSummary[]
 }
-
-// Linux distros by approximate popularity or if setup is needed.
-const distroOrder = [
-  "Ubuntu",
-  "Debian",
-  "Chrome OS",
-  "Fedora",
-  "Arch",
-  "Linux Mint",
-  "openSUSE",
-  "Manjaro",
-]
 
 export default function SetupClient({ instructions }: Props) {
   const t = useTranslations()
@@ -40,14 +25,7 @@ export default function SetupClient({ instructions }: Props) {
           ...instruction,
           translatedName: t(instruction.translatedNameKey),
         }))
-        .sort((a, b) => {
-          const aIndex = distroOrder.indexOf(a.name)
-          const bIndex = distroOrder.indexOf(b.name)
-          return (
-            (aIndex === -1 ? distroOrder.length : aIndex) -
-            (bIndex === -1 ? distroOrder.length : bIndex)
-          )
-        }),
+        .sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0)),
     [instructions, t],
   )
   const instructionsFilteredAndSorted = useMemo(

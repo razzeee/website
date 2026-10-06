@@ -50,6 +50,12 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Test
+        run: pnpm test
+
+      - name: Check generated setup data
+        run: pnpm check:setup-messages
+
       - name: Build application
         run: pnpm build
         env:
