@@ -970,6 +970,9 @@ const OsFlatpakVersionsChart = ({ stats }: { stats: StatsResult }) => {
         {t("os-flatpak-version-distribution")}
       </h2>
       <div className="rounded-xl bg-flathub-white p-4 shadow-md dark:bg-flathub-arsenic">
+        <p className="mb-2 text-sm text-muted-foreground">
+          {t("select-flatpak-versions")}
+        </p>
         <TanstackChart
           definition={definition}
           ariaLabel={t("os-flatpak-version-distribution")}

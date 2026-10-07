@@ -32,6 +32,7 @@
   "chart-data-table": "View data",
   "chart-description": "{chart}. Exact values are available in the data table.",
   "series-visibility": "Series visibility",
+  "select-flatpak-versions": "Select a version below the chart to show or hide it.",
   "build-duration-over-time": "Build duration over time",
   "duration-minutes": "Duration (minutes)",
   "category": "Category",
