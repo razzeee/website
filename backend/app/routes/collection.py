@@ -1,6 +1,9 @@
-from typing import Annotated
+from collections.abc import Callable
+from functools import wraps
+from typing import Annotated, Any
 
 from fastapi import APIRouter, FastAPI, HTTPException, Query, Response
+from fastapi.responses import JSONResponse
 
 from .. import schemas, search
 from ..cache import cached
@@ -11,6 +14,59 @@ router = APIRouter(
 )
 OptionalSubcategoriesQuery = Annotated[list[str] | None, Query()]
 SubcategoriesQuery = Annotated[list[str], Query()]
+FieldsQuery = Annotated[
+    str | None,
+    Query(description="Comma-separated app fields to include in each hit"),
+]
+
+
+def _with_selected_fields(func: Callable[..., Any]) -> Callable[..., Any]:
+    @wraps(func)
+    async def wrapper(*args: Any, **kwargs: Any) -> Any:
+        fields = kwargs.get("fields")
+        selected_fields: list[str] | None = None
+        if fields is not None:
+            selected_fields = [field.strip() for field in fields.split(",")]
+            available_fields = search.AppsIndex.model_fields
+            unknown_fields = set(selected_fields) - available_fields.keys()
+            if not selected_fields or any(not field for field in selected_fields):
+                raise HTTPException(
+                    status_code=422,
+                    detail="fields must be a comma-separated list of app fields",
+                )
+            if unknown_fields:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Unknown app fields: {', '.join(sorted(unknown_fields))}",
+                )
+
+        result = await func(*args, **kwargs)
+        if selected_fields is None:
+            return result
+
+        payload = result.model_dump(mode="json", by_alias=True, exclude={"hits"})
+        payload["hits"] = [
+            hit.model_dump(
+                mode="json",
+                by_alias=True,
+                include=set(selected_fields),
+            )
+            for hit in result.hits
+        ]
+        response = next(
+            (
+                value
+                for value in (*args, *kwargs.values())
+                if isinstance(value, Response)
+            ),
+            None,
+        )
+        return JSONResponse(
+            content=payload,
+            headers=dict(response.headers) if response is not None else None,
+        )
+
+    return wrapper
 
 
 def register_to_app(app: FastAPI):
@@ -38,6 +94,7 @@ async def get_categories() -> list[str]:
         400: {"description": "Invalid pagination parameters"},
     },
 )
+@_with_selected_fields
 @cached(ttl=300)
 async def get_category(
     response: Response,
@@ -47,6 +104,7 @@ async def get_category(
     per_page: int | None = None,
     locale: str = "en",
     sort_by: schemas.SortBy | None = None,
+    fields: FieldsQuery = None,
 ) -> search.MeilisearchResponse[search.AppsIndex]:
     """
     Get applications in a specific main category.
@@ -80,6 +138,7 @@ async def get_category(
         400: {"description": "Invalid pagination parameters"},
     },
 )
+@_with_selected_fields
 @cached(ttl=300)
 async def get_subcategory(
     response: Response,
@@ -90,6 +149,7 @@ async def get_subcategory(
     per_page: int | None = None,
     locale: str = "en",
     sort_by: schemas.SortBy | None = None,
+    fields: FieldsQuery = None,
 ) -> search.MeilisearchResponse[search.AppsIndex]:
     """
     Get applications in specific subcategories within a main category.
@@ -158,6 +218,7 @@ async def get_keywords(
         400: {"description": "Invalid pagination parameters"},
     },
 )
+@_with_selected_fields
 @cached(ttl=300)
 async def get_keyword(
     response: Response,
@@ -165,6 +226,7 @@ async def get_keyword(
     page: int | None = None,
     per_page: int | None = None,
     locale: str = "en",
+    fields: FieldsQuery = None,
 ) -> search.MeilisearchResponse[search.AppsIndex]:
     """
     Search for applications by keyword.
@@ -230,6 +292,7 @@ async def get_developers(
         400: {"description": "Invalid pagination parameters"},
     },
 )
+@_with_selected_fields
 @cached(ttl=300)
 async def get_developer(
     response: Response,
@@ -237,6 +300,7 @@ async def get_developer(
     page: int | None = None,
     per_page: int | None = None,
     locale: str = "en",
+    fields: FieldsQuery = None,
 ) -> search.MeilisearchResponse[search.AppsIndex]:
     """
     Get all applications published by a specific developer.
@@ -268,12 +332,14 @@ async def get_developer(
         400: {"description": "Invalid pagination parameters"},
     },
 )
+@_with_selected_fields
 @cached(ttl=300)
 async def get_recently_updated(
     response: Response,
     page: int | None = None,
     per_page: int | None = None,
     locale: str = "en",
+    fields: FieldsQuery = None,
 ) -> search.MeilisearchResponse[search.AppsIndex]:
     """
     Get applications that have been recently updated.
@@ -305,12 +371,14 @@ async def get_recently_updated(
         400: {"description": "Invalid pagination parameters"},
     },
 )
+@_with_selected_fields
 @cached(ttl=300)
 async def get_recently_added(
     response: Response,
     page: int | None = None,
     per_page: int | None = None,
     locale: str = "en",
+    fields: FieldsQuery = None,
 ) -> search.MeilisearchResponse[search.AppsIndex]:
     """
     Get applications that have been recently added to Flathub.
@@ -342,12 +410,14 @@ async def get_recently_added(
         400: {"description": "Invalid pagination parameters"},
     },
 )
+@_with_selected_fields
 @cached(ttl=300)
 async def get_verified(
     response: Response,
     page: int | None = None,
     per_page: int | None = None,
     locale: str = "en",
+    fields: FieldsQuery = None,
 ) -> search.MeilisearchResponse[search.AppsIndex]:
     """
     Get applications that have been verified by Flathub.
@@ -380,12 +450,14 @@ async def get_verified(
         400: {"description": "Invalid pagination parameters"},
     },
 )
+@_with_selected_fields
 @cached(ttl=300)
 async def get_mobile(
     response: Response,
     page: int | None = None,
     per_page: int | None = None,
     locale: str = "en",
+    fields: FieldsQuery = None,
 ) -> search.MeilisearchResponse[search.AppsIndex]:
     """
     Get applications that are mobile-friendly.
@@ -418,12 +490,14 @@ async def get_mobile(
         400: {"description": "Invalid pagination parameters"},
     },
 )
+@_with_selected_fields
 @cached(ttl=300)
 async def get_popular_last_month(
     response: Response,
     page: int | None = None,
     per_page: int | None = None,
     locale: str = "en",
+    fields: FieldsQuery = None,
 ) -> search.MeilisearchResponse[search.AppsIndex]:
     """
     Get the most popular applications based on installs in the last month.
@@ -455,12 +529,14 @@ async def get_popular_last_month(
         400: {"description": "Invalid pagination parameters"},
     },
 )
+@_with_selected_fields
 @cached(ttl=300)
 async def get_trending_last_two_weeks(
     response: Response,
     page: int | None = None,
     per_page: int | None = None,
     locale: str = "en",
+    fields: FieldsQuery = None,
 ) -> search.MeilisearchResponse[search.AppsIndex]:
     """
     Get trending applications based on recent growth in installs.
@@ -493,12 +569,14 @@ async def get_trending_last_two_weeks(
         400: {"description": "Invalid pagination parameters"},
     },
 )
+@_with_selected_fields
 @cached(ttl=300)
 async def get_most_favorited(
     response: Response,
     page: int | None = None,
     per_page: int | None = None,
     locale: str = "en",
+    fields: FieldsQuery = None,
 ) -> search.MeilisearchResponse[search.AppsIndex]:
     """
     Get applications sorted by the number of times they have been favorited.

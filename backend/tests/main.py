@@ -154,6 +154,22 @@ def test_apps_by_category(client, snapshot):
     )
 
 
+def test_apps_by_category_fields(client):
+    response = client.get("/collection/category/Game?fields=id,name")
+
+    assert response.status_code == 200
+    response_data = response.json()
+    assert response_data["hits"]
+    assert set(response_data["hits"][0]) == {"id", "name"}
+    assert response_data["totalHits"] > 0
+
+
+def test_apps_by_category_rejects_unknown_fields(client):
+    response = client.get("/collection/category/Game?fields=id,not_a_field")
+
+    assert response.status_code == 422
+
+
 def test_apps_by_category_locale(client, snapshot):
     response = client.get("/collection/category/Game?locale=de")
     assert response.status_code == 200
