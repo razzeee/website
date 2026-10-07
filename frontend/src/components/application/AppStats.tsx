@@ -2,8 +2,8 @@ import { FunctionComponent } from "react"
 
 import { useLocale, useTranslations } from "next-intl"
 import { useMemo } from "react"
-import { createAppStatsChart } from "./app-stats-chart"
-import { TanstackChart } from "src/components/charts/chart"
+import { createAppStatsChart, formatInstallDate } from "./app-stats-chart"
+import { ChartDataTable, TanstackChart } from "src/components/charts/chart"
 import { StatsResultApp } from "src/codegen"
 
 interface Props {
@@ -36,8 +36,22 @@ const AppStatistics: FunctionComponent<Props> = ({ stats }) => {
       <TanstackChart
         definition={definition}
         ariaLabel={t("installs-over-time")}
-        height={400}
-        className="min-h-[400px] w-full"
+        ariaDescription={t("chart-description", {
+          chart: t("installs-over-time"),
+        })}
+        className="h-[clamp(18rem,42vw,26rem)] w-full"
+      />
+      <ChartDataTable
+        label={t("chart-data-table", { chart: t("installs-over-time") })}
+        caption={t("installs-over-time")}
+        columns={[t("date"), t("installs")]}
+        rows={data.map((point) => ({
+          key: point.date,
+          cells: [
+            formatInstallDate(point.date, locale),
+            point.installs.toLocaleString(locale),
+          ],
+        }))}
       />
     </div>
   )
