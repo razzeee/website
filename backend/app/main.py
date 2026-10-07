@@ -44,6 +44,7 @@ from .routes import (
 if config.settings.sentry_dsn:
     sentry_sdk.init(
         dsn=config.settings.sentry_dsn,
+        send_default_pii=False,
         traces_sample_rate=0.1,
         profiles_sample_rate=0.1,
         environment="production",

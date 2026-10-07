@@ -4,6 +4,7 @@
 
 import * as Sentry from "@sentry/nextjs"
 import { isEmailConfirmRoute } from "src/utils/security"
+import { scrubSentryPayload } from "src/utils/sentry-scrub"
 
 const SENTRY_DSN = process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN
 
@@ -21,19 +22,10 @@ const onEmailConfirmRoute = (value: unknown): boolean => {
 const scrubRequestUrl = <T extends { request?: { url?: string } }>(
   event: T,
 ): T | null => {
-  if (event.request?.url) {
-    try {
-      const url = new URL(event.request.url)
-      url.hash = ""
-      if (isEmailConfirmRoute(url.pathname)) {
-        return null
-      }
-      event.request.url = url.toString()
-    } catch {
-      return event
-    }
+  if (event.request?.url && onEmailConfirmRoute(event.request.url)) {
+    return null
   }
-  return event
+  return scrubSentryPayload(event)
 }
 
 // Magic links carry the sign-in token in the URL fragment, so keep replays
@@ -53,6 +45,7 @@ Sentry.init({
   tracesSampleRate: 0.1,
   // Enable logs to be sent to Sentry
   enableLogs: true,
+  sendDefaultPii: false,
 
   // Define how likely Replay events are sampled.
   // This sets the sample rate to 10%. You may want to set this to 100% while
@@ -78,7 +71,7 @@ Sentry.init({
     ) {
       return null
     }
-    return breadcrumb
+    return scrubSentryPayload(breadcrumb)
   },
 })
 

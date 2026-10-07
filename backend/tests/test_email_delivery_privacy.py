@@ -194,3 +194,50 @@ def test_sentry_filter_keeps_unrelated_errors_in_email_login_module():
     assert filtered["exception"]["values"][0]["value"] == "database timeout"
     frame = filtered["exception"]["values"][0]["stacktrace"]["frames"][0]
     assert frame["vars"] == {"user_id": "1"}
+
+
+def test_sentry_scrubs_credentials_from_unrelated_events_and_breadcrumbs():
+    secrets = [
+        "bearer-secret",
+        "cookie-secret",
+        "refresh-secret",
+        "body-secret",
+        "oauth-secret",
+    ]
+    event = {
+        "request": {
+            "url": "https://example.test/callback?access_token=refresh-secret&code=oauth-secret&safe=visible#token=bearer-secret",
+            "headers": {
+                "Authorization": "Bearer bearer-secret",
+                "Cookie": "session=cookie-secret",
+            },
+            "data": {"client_secret": "body-secret"},
+        },
+        "extra": {"refresh_token": "refresh-secret"},
+        "exception": {
+            "values": [{"value": "request failed with Bearer bearer-secret"}]
+        },
+    }
+    breadcrumb = {
+        "category": "http",
+        "data": {
+            "url": "https://example.test/callback?token=bearer-secret&safe=visible",
+            "headers": {"Authorization": "Bearer bearer-secret"},
+        },
+    }
+    transaction = {
+        "type": "transaction",
+        "request": {
+            "url": "https://example.test/api?refresh_token=refresh-secret",
+            "headers": {"Cookie": "session=cookie-secret"},
+        },
+    }
+
+    filtered_event = emails.sentry_before_send(event, {})
+    filtered_breadcrumb = emails.sentry_before_breadcrumb(breadcrumb, {})
+    filtered_transaction = emails.sentry_before_send_transaction(transaction, {})
+    serialized = json.dumps([filtered_event, filtered_breadcrumb, filtered_transaction])
+
+    for secret in secrets:
+        assert secret not in serialized
+    assert "safe=visible" in serialized

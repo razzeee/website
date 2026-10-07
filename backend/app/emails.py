@@ -14,6 +14,7 @@ from sqlalchemy import select
 
 from . import http_client, models
 from .config import settings
+from .sentry_privacy import scrub_sentry_value
 from .types import JSONObject, is_json_object
 
 
@@ -100,7 +101,7 @@ def sentry_before_send(event: Event, hint: Hint) -> Event:
     is_email_auth = _contains_email_auth_path(event)
     is_email_login = _contains_email_login(event)
     if not is_email_auth and not is_email_login:
-        return event
+        return scrub_sentry_value(event)
 
     request = event.get("request")
     if isinstance(request, dict):
@@ -144,19 +145,19 @@ def sentry_before_send(event: Event, hint: Hint) -> Event:
                 for frame in stacktrace.get("frames", []):
                     if isinstance(frame, dict):
                         frame.pop("vars", None)
-    return event
+    return scrub_sentry_value(event)
 
 
 def sentry_before_breadcrumb(crumb: Breadcrumb, hint: Hint) -> Breadcrumb | None:
     if _contains_email_auth_path(crumb) or _contains_email_login(crumb):
         return None
-    return crumb
+    return scrub_sentry_value(crumb)
 
 
 def sentry_before_send_transaction(event: Event, hint: Hint) -> Event | None:
     if _contains_email_auth_path(event) or _contains_email_login(event):
         return None
-    return event
+    return scrub_sentry_value(event)
 
 
 def _get_destination_and_append(
