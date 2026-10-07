@@ -233,7 +233,8 @@ const DownloadsOverTime = ({ stats }: { stats: StatsResult }) => {
           ariaDescription={t("chart-description", {
             chart: t("downloads-over-time"),
           })}
-          className="h-[clamp(18rem,42vw,30rem)] w-full"
+          height={500}
+          className="min-h-[500px] w-full"
         />
         <ChartDataTable
           label={t("chart-data-table", { chart: t("downloads-over-time") })}
@@ -313,8 +314,8 @@ const FailedByGuideline = () => {
               ariaDescription={t("chart-description", {
                 chart: "Failed by guideline",
               })}
-              height={Math.max(320, Math.min(720, data.length * 56))}
-              className="min-h-0 w-full"
+              height={500}
+              className="min-h-[500px] w-full"
             />
             <ChartDataTable
               label={t("chart-data-table", { chart: "Failed by guideline" })}
@@ -422,10 +423,7 @@ const GuidelineStatsByCategory = () => {
                 ariaDescription={t("chart-description", {
                   chart: t("quality-guideline.stats-by-category"),
                 })}
-                height={Math.max(
-                  320,
-                  Math.min(720, (query.data?.data.length ?? 0) * 56),
-                )}
+                height={360}
               />
               <ChartLegendItems
                 items={[
@@ -502,7 +500,8 @@ const CategoryDistribution = ({ stats }: { stats: StatsResult }) => {
           ariaDescription={t("chart-description", {
             chart: t("category-distribution"),
           })}
-          className="h-[clamp(20rem,48vw,32rem)] w-full"
+          height={500}
+          className="min-h-[500px] w-full"
         />
         <ChartDataTable
           label={t("chart-data-table", { chart: t("category-distribution") })}
@@ -584,8 +583,8 @@ const RuntimeChart = ({ runtimes }: { runtimes: Record<string, number> }) => {
           ariaDescription={t("chart-description", {
             chart: t("runtime-distribution"),
           })}
-          height={Math.max(360, Math.min(960, data.length * 30))}
-          className="min-h-0 w-full"
+          height={800}
+          className="min-h-[800px] w-full"
           onSelect={(point) => {
             const runtime = (point?.datum as (typeof data)[number] | undefined)
               ?.runtime
@@ -977,7 +976,7 @@ const OsFlatpakVersionsChart = ({ stats }: { stats: StatsResult }) => {
           ariaDescription={t("chart-description", {
             chart: t("os-flatpak-version-distribution"),
           })}
-          height={Math.max(320, data.length * 42)}
+          height={Math.max(300, data.length * 40) + 60}
           className="w-full"
         />
         <ChartDataTable

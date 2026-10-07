@@ -39,7 +39,8 @@ const AppStatistics: FunctionComponent<Props> = ({ stats }) => {
         ariaDescription={t("chart-description", {
           chart: t("installs-over-time"),
         })}
-        className="h-[clamp(18rem,42vw,26rem)] w-full"
+        height={400}
+        className="min-h-[400px] w-full"
       />
       <ChartDataTable
         label={t("chart-data-table", { chart: t("installs-over-time") })}

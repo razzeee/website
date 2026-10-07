@@ -29,7 +29,7 @@
   "badges": "Badges",
   "statistics": "Statistics",
   "country-statistics": "Country Statistics",
-  "chart-data-table": "Show exact data for {chart}",
+  "chart-data-table": "View data",
   "chart-description": "{chart}. Exact values are available in the data table.",
   "series-visibility": "Series visibility",
   "build-duration-over-time": "Build duration over time",

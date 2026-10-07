@@ -2,7 +2,9 @@
 
 import { Chart } from "@tanstack/charts/react/tooltip"
 import type { ChartDefinition } from "@tanstack/charts/react"
-import type { ComponentProps, ReactNode } from "react"
+import { useState, type ComponentProps, type ReactNode } from "react"
+import Modal from "src/components/Modal"
+import { Button } from "@/components/ui/button"
 
 type TanstackChartProps = Omit<
   ComponentProps<typeof Chart>,
@@ -48,36 +50,54 @@ export function ChartDataTable({
   columns: readonly string[]
   rows: readonly { key: string; cells: readonly ReactNode[] }[]
 }) {
+  const [isOpen, setIsOpen] = useState(false)
+
   return (
-    <details className="mt-3 text-sm">
-      <summary className="w-fit cursor-pointer rounded-sm text-muted-foreground underline decoration-muted-foreground/50 underline-offset-4 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2">
-        {label}
-      </summary>
-      <div className="mt-3 max-h-80 overflow-auto rounded-md border">
-        <table className="w-full border-collapse text-start">
-          <caption className="sr-only">{caption}</caption>
-          <thead className="sticky top-0 bg-muted text-start">
-            <tr>
-              {columns.map((column) => (
-                <th key={column} scope="col" className="px-3 py-2 text-start">
-                  {column}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(({ key, cells }) => (
-              <tr key={key} className="border-t">
-                {cells.map((cell, index) => (
-                  <td key={index} className="px-3 py-2 tabular-nums">
-                    {cell}
-                  </td>
+    <>
+      <div className="mt-2 flex justify-end">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          aria-haspopup="dialog"
+          onClick={() => setIsOpen(true)}
+        >
+          {label}
+        </Button>
+      </div>
+      <Modal
+        shown={isOpen}
+        title={caption}
+        onClose={() => setIsOpen(false)}
+        size="xl"
+        className="max-h-[90vh] overflow-y-auto"
+      >
+        <div className="max-h-[65vh] overflow-auto rounded-md border">
+          <table className="w-full border-collapse text-start">
+            <caption className="sr-only">{caption}</caption>
+            <thead className="sticky top-0 bg-muted text-start">
+              <tr>
+                {columns.map((column) => (
+                  <th key={column} scope="col" className="px-3 py-2 text-start">
+                    {column}
+                  </th>
                 ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </details>
+            </thead>
+            <tbody>
+              {rows.map(({ key, cells }) => (
+                <tr key={key} className="border-t">
+                  {cells.map((cell, index) => (
+                    <td key={index} className="px-3 py-2 tabular-nums">
+                      {cell}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Modal>
+    </>
   )
 }
