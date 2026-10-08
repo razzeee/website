@@ -280,6 +280,8 @@
   "more-apps-by-developer": "More apps by {developer}",
   "loading": "Loading…",
   "date": "Date",
+  "view-chart-data": "View chart data",
+  "chart-no-data": "No data available.",
   "get-apps": "Get apps",
   "about-claim": "<text>Whether you're a user looking for apps or a developer looking to reach more users, <bold>Flathub is the best choice for apps on Linux.</bold></text>",
   "all-the-apps-you-want": "<bold>All the apps you want</bold> — From big names you'd expect to fresh indie developers, Flathub has thousands of apps to meet your needs.",

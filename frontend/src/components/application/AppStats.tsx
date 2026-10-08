@@ -5,6 +5,7 @@ import { useMemo } from "react"
 import { createAppStatsChart } from "./app-stats-chart"
 import { TanstackChart } from "src/components/charts/chart"
 import { StatsResultApp } from "src/codegen"
+import { TimeSeriesData } from "src/components/charts/time-series-data"
 
 interface Props {
   stats: Pick<StatsResultApp, "installs_per_day">
@@ -40,6 +41,11 @@ const AppStatistics: FunctionComponent<Props> = ({ stats }) => {
           chart: t("installs-over-time"),
         })}
         className="h-[clamp(18rem,42vw,26rem)] w-full"
+      />
+      <TimeSeriesData
+        data={data.map(({ date, installs }) => ({ date, value: installs }))}
+        title={t("installs-over-time")}
+        valueLabel={t("installs")}
       />
     </div>
   )

@@ -35,6 +35,7 @@ import { useLocale, useTranslations } from "next-intl"
 import { useRouter } from "src/i18n/navigation"
 import { getIntlLocale } from "src/localize"
 import CountryMap, { type CountryMapValue } from "@/components/ui/country-map"
+import { TimeSeriesData } from "src/components/charts/time-series-data"
 
 interface StatisticsClientProps {
   stats: StatsResult
@@ -228,6 +229,11 @@ const DownloadsOverTime = ({ stats }: { stats: StatsResult }) => {
             chart: t("downloads-over-time"),
           })}
           className="h-[clamp(18rem,42vw,30rem)] w-full"
+        />
+        <TimeSeriesData
+          data={data.map(({ date, downloads }) => ({ date, value: downloads }))}
+          title={t("downloads-over-time")}
+          valueLabel={t("downloads")}
         />
       </div>
     </>
