@@ -57,6 +57,7 @@
     "installed-runtime-size": "Installed Runtime Size",
     "appname-works-best-on-specific-hardware": "{appName} works best on specific hardware",
     "appname-works-on-all-devices": "{appName} works on all devices",
+    "appname-works-on-most-devices": "{appName} works on most devices",
     "mobile-support": "Mobile support",
     "desktop-support": "Desktop support",
     "works-well-on-large-screens": "Works well on large screens",

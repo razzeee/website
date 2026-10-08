@@ -106,6 +106,8 @@ const PlatformModal = ({
     ...getConditionItems(recommends, "recommended", t),
     ...getConditionItems(supports, "supported", t),
   ]
+  const hasAppStreamCaveats =
+    (requires?.length ?? 0) > 0 || (recommends?.length ?? 0) > 0
 
   return (
     <Modal
@@ -132,10 +134,15 @@ const PlatformModal = ({
       }
       title={
         isMobileFriendly
-          ? t("sub-header.appname-works-on-all-devices", { appName })
+          ? t(
+              hasAppStreamCaveats
+                ? "sub-header.appname-works-on-most-devices"
+                : "sub-header.appname-works-on-all-devices",
+              { appName },
+            )
           : t("sub-header.appname-works-best-on-specific-hardware", { appName })
       }
-      size="sm"
+      size="xl"
     >
       <StackedListBox
         items={[

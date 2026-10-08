@@ -166,6 +166,9 @@ export const DeviceSupport: Story = {
     await userEvent.click(canvas.getByText("Desktop & Mobile"))
 
     const page = within(canvasElement.ownerDocument.body)
+    expect(
+      page.getByText("Example App works on most devices"),
+    ).toBeInTheDocument()
     expect(page.getByText("Keyboard support")).toBeInTheDocument()
     expect(page.getByText("Keyboard supported")).toBeInTheDocument()
     expect(page.getByText("Gamepad recommended")).toBeInTheDocument()
