@@ -170,8 +170,8 @@ export const DeviceSupport: Story = {
       page.getByText("Example App works on most devices"),
     ).toBeInTheDocument()
     expect(page.getByText("Keyboard support")).toBeInTheDocument()
-    expect(page.getByText("Keyboard supported")).toBeInTheDocument()
-    expect(page.getByText("Gamepad recommended")).toBeInTheDocument()
+    expect(page.getByText("Supports keyboards")).toBeInTheDocument()
+    expect(page.getByText("Recommends gamepads")).toBeInTheDocument()
     expect(page.getByText("Memory requirement")).toBeInTheDocument()
   },
 }
