@@ -64,6 +64,9 @@ const Verification: FunctionComponent<Props> = ({
         case "kde":
           link = `https://invent.kde.org/${verificationStatus.login_name}`
           break
+        case "itch":
+          link = `https://${verificationStatus.login_name}.itch.io`
+          break
       }
       verifiedLink = (
         <a

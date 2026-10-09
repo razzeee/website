@@ -4,6 +4,7 @@ import { useUserContext } from "src/context/user-info"
 import ConfirmDialog from "../../ConfirmDialog"
 import Spinner from "../../Spinner"
 import LoginVerification from "./LoginVerification"
+import ItchVerification from "./ItchVerification"
 import WebsiteVerification from "./WebsiteVerification"
 import DnsVerification from "./DnsVerification"
 import InlineError from "src/components/InlineError"
@@ -261,6 +262,16 @@ const AppVerificationSetup: FunctionComponent<Props> = ({
                 )
               }
               if (methodType.method === "login_provider") {
+                if (methodType.login_provider === "itch") {
+                  return (
+                    <ItchVerification
+                      key={methodType.method}
+                      appId={app.id}
+                      method={methodType}
+                      isNewApp={isNewApp}
+                    />
+                  )
+                }
                 return (
                   <LoginVerification
                     key={methodType.method}

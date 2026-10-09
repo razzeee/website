@@ -42,5 +42,7 @@ export function verificationProviderToHumanReadable(
       return "GNOME GitLab"
     case "kde":
       return "KDE GitLab"
+    case "itch":
+      return "itch.io"
   }
 }

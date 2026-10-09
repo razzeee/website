@@ -12,4 +12,5 @@ export const LoginProvider = {
   gitlab: "gitlab",
   gnome: "gnome",
   kde: "kde",
+  itch: "itch",
 } as const

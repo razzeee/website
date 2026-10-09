@@ -1,9 +1,11 @@
 import importlib.resources
 import json
+import secrets
 import xml.etree.ElementTree as ET
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Annotated, Literal
+from urllib.parse import unquote, urlencode, urlsplit
 from uuid import uuid4
 
 import dns.asyncresolver
@@ -118,6 +120,8 @@ def _get_provider_username(app_id: str) -> tuple["LoginProvider", str] | None:
             return (LoginProvider.GNOME_GITLAB, maintainers[0])
     elif _matches_prefixes(app_id, "org.kde"):
         return (LoginProvider.KDE_GITLAB, "teams/flathub")
+    elif _matches_prefixes(app_id, "io.itch"):
+        return (LoginProvider.ITCH, _demangle_name(app_id.split(".")[2]))
 
     return None
 
@@ -382,6 +386,7 @@ class LoginProvider(StrEnum):
     GITLAB = "gitlab"
     GNOME_GITLAB = "gnome"
     KDE_GITLAB = "kde"
+    ITCH = "itch"
 
 
 # --- VerificationStatus Union Models ---
@@ -677,6 +682,25 @@ class AvailableMethod(BaseModel):
     login_status: AvailableLoginMethodStatus | None = None
 
 
+class ItchVerificationStartRequest(BaseModel):
+    new_app: bool = False
+    return_to: str = Field(max_length=2048)
+
+
+class ItchVerificationStartResponse(BaseModel):
+    redirect: str
+
+
+class ItchVerificationCompleteRequest(BaseModel):
+    state: str = Field(min_length=1, max_length=128)
+    access_token: str = Field(min_length=1, max_length=4096)
+
+
+class ItchVerificationCompleteResponse(BaseModel):
+    app_id: str
+    return_to: str
+
+
 class AvailableMethods(BaseModel):
     methods: list[AvailableMethod] | None = None
     detail: str | None = None
@@ -745,11 +769,144 @@ def get_available_methods(
             ]
         )
 
-    if _get_provider_username(app_id) is not None:
+    if provider_username := _get_provider_username(app_id):
+        provider, _username = provider_username
+        if provider == LoginProvider.ITCH and not config.settings.itch_client_id:
+            return AvailableMethods(methods=methods)
         available_method = _check_login_provider_verification(app_id, new_app, login)
         methods.append(available_method)
 
     return AvailableMethods(methods=methods)
+
+
+@router.post(
+    "/{app_id}/itch/start",
+    response_model=ItchVerificationStartResponse,
+    tags=["verification"],
+)
+@cache.no_store
+def start_itch_verification(
+    data: ItchVerificationStartRequest,
+    request: Request,
+    login: LoggedInDep,
+    app_id: str = Path(
+        min_length=6,
+        max_length=255,
+        pattern=r"^[A-Za-z_][\w\-\.]+$",
+    ),
+) -> ItchVerificationStartResponse:
+    """Start itch.io's implicit OAuth flow for an `io.itch.*` app ID."""
+    _check_app_id(app_id, data.new_app, login)
+    provider_username = _get_provider_username(app_id)
+    if not provider_username or provider_username[0] != LoginProvider.ITCH:
+        raise HTTPException(status_code=400, detail=ErrorDetail.INVALID_METHOD)
+
+    client_id = config.settings.itch_client_id
+    if not client_id:
+        raise HTTPException(status_code=503, detail=ErrorDetail.PROVIDER_ERROR)
+
+    return_to = data.return_to
+    parsed_return_to = urlsplit(unquote(return_to))
+    if (
+        not parsed_return_to.path.startswith("/")
+        or parsed_return_to.path.startswith("//")
+        or parsed_return_to.scheme
+        or parsed_return_to.netloc
+        or "\\" in parsed_return_to.path
+    ):
+        raise HTTPException(status_code=400, detail="invalid_return_to")
+
+    state = secrets.token_urlsafe(32)
+    request.session["itch_verification"] = {
+        "state": state,
+        "app_id": app_id,
+        "user_id": login.user.id,
+        "new_app": data.new_app,
+        "return_to": return_to,
+        "created_at": datetime.now(UTC).timestamp(),
+    }
+
+    redirect_uri = config.settings.itch_return_url or (
+        config.settings.frontend_url.rstrip("/") + "/login/itch-verification"
+    )
+    authorization_url = "https://itch.io/user/oauth?" + urlencode(
+        {
+            "client_id": client_id,
+            "scope": "profile:me",
+            "redirect_uri": redirect_uri,
+            "response_type": "token",
+            "state": state,
+        }
+    )
+    return ItchVerificationStartResponse(redirect=authorization_url)
+
+
+@router.post(
+    "/itch/complete",
+    response_model=ItchVerificationCompleteResponse,
+    tags=["verification"],
+)
+@cache.no_store
+def complete_itch_verification(
+    data: ItchVerificationCompleteRequest,
+    request: Request,
+    login: LoggedInDep,
+) -> ItchVerificationCompleteResponse:
+    """Validate the itch.io identity and record app verification."""
+    flow = request.session.pop("itch_verification", None)
+    if not isinstance(flow, dict) or not secrets.compare_digest(
+        str(flow.get("state", "")), data.state
+    ):
+        raise HTTPException(status_code=400, detail="invalid_flow_state")
+
+    if (
+        flow.get("user_id") != login.user.id
+        or datetime.now(UTC).timestamp() - float(flow.get("created_at", 0)) > 600
+    ):
+        raise HTTPException(status_code=400, detail="invalid_or_expired_flow")
+
+    app_id = str(flow["app_id"])
+    new_app = bool(flow["new_app"])
+    _check_app_id(app_id, new_app, login)
+    provider_username = _get_provider_username(app_id)
+    if not provider_username or provider_username[0] != LoginProvider.ITCH:
+        raise HTTPException(status_code=400, detail=ErrorDetail.INVALID_METHOD)
+
+    try:
+        response = http_client.get(
+            "https://api.itch.io/profile",
+            headers={"Authorization": f"Bearer {data.access_token}"},
+            timeout=10,
+        )
+        if response.status_code != 200:
+            raise HTTPException(status_code=502, detail=ErrorDetail.PROVIDER_ERROR)
+        profile = response.json()
+    except (httpx.HTTPError, ValueError):
+        raise HTTPException(status_code=502, detail=ErrorDetail.PROVIDER_ERROR)
+
+    profile_user = profile.get("user") if isinstance(profile, dict) else None
+    username = profile_user.get("username") if isinstance(profile_user, dict) else None
+    if not isinstance(username, str):
+        raise HTTPException(status_code=502, detail=ErrorDetail.PROVIDER_ERROR)
+    if username.casefold() != provider_username[1].casefold():
+        raise HTTPException(status_code=403, detail=ErrorDetail.USERNAME_DOES_NOT_MATCH)
+
+    verification = models.AppVerification(
+        app_id=app_id,
+        account=login.user.id,
+        method=VerificationMethod.LOGIN_PROVIDER,
+        verified=True,
+        verified_timestamp=func.now(),
+        login_is_organization=False,
+    )
+    with get_db("writer") as db:
+        require_oauth_upgrade(db, login.user)
+        db.session.add(verification)
+        _cleanup_stale_verifications(db, app_id, login.user.id)
+
+    return ItchVerificationCompleteResponse(
+        app_id=app_id, return_to=str(flow["return_to"])
+    )
 
 
 def _verify_by_github(username: str, account) -> AvailableMethod:
@@ -939,6 +1096,16 @@ def _check_login_provider_verification(
             models.KdeAccount,
             LoginProvider.KDE_GITLAB,
             "https://invent.kde.org",
+        )
+    elif provider == LoginProvider.ITCH:
+        return AvailableMethod(
+            method=AvailableMethodType.LOGIN_PROVIDER,
+            login_provider=LoginProvider.ITCH,
+            login_name=username,
+            login_is_organization=False,
+            # Itch verification is completed through its implicit OAuth flow, not
+            # through a linked Flathub account.
+            login_status=AvailableLoginMethodStatus.NOT_LOGGED_IN,
         )
     else:
         raise HTTPException(status_code=500)
