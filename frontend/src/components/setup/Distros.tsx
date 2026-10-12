@@ -174,12 +174,14 @@ const Ubuntu = ({ locale }: { locale: string }) => {
           <h2>{t("distros.ubuntu.step-2.name")}</h2>
           {t.rich("distros.ubuntu.step-2.text", {
             text: (chunk) => <p>{chunk}</p>,
-            code: (chunk) => (
-              <CodeCopy
-                text={`sudo apt install gnome-software-plugin-flatpak`}
-              />
+            filelink: (chunk) => (
+              <a href="https://dl.flathub.org/repo/flathub.flatpakrepo">
+                {chunk}
+              </a>
             ),
-            strong: (chunk) => <strong>{chunk}</strong>,
+            code: (chunk) => (
+              <CodeCopy text="flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo" />
+            ),
           })}
         </li>
 
@@ -187,17 +189,8 @@ const Ubuntu = ({ locale }: { locale: string }) => {
           <h2>{t("distros.ubuntu.step-3.name")}</h2>
           {t.rich("distros.ubuntu.step-3.text", {
             text: (chunk) => <p>{chunk}</p>,
-            filelink: (chunk) => (
-              <a href="https://dl.flathub.org/repo/flathub.flatpakrepo">
-                {chunk}
-              </a>
-            ),
             code: (chunk) => (
-              <CodeCopy
-                text={
-                  "flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo"
-                }
-              />
+              <CodeCopy text="flatpak install flathub io.github.kolunmi.Bazaar" />
             ),
           })}
         </li>
@@ -979,14 +972,12 @@ const Debian = ({ locale }: { locale: string }) => {
           {t.rich("distros.debian.step-2.text", {
             text: (chunk) => <p>{chunk}</p>,
             code: (chunk) => (
-              <CodeCopy
-                text={"sudo apt install gnome-software-plugin-flatpak"}
-              />
+              <CodeCopy text="flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo" />
             ),
-            codeDiscover: (chunk) => (
-              <CodeCopy
-                text={"sudo apt install plasma-discover-backend-flatpak"}
-              />
+            filelink: (chunk) => (
+              <a href="https://dl.flathub.org/repo/flathub.flatpakrepo">
+                {chunk}
+              </a>
             ),
           })}
         </li>
@@ -995,17 +986,8 @@ const Debian = ({ locale }: { locale: string }) => {
           <h2>{t("distros.debian.step-3.name")}</h2>
           {t.rich("distros.debian.step-3.text", {
             text: (chunk) => <p>{chunk}</p>,
-            filelink: (chunk) => (
-              <a href="https://dl.flathub.org/repo/flathub.flatpakrepo">
-                {chunk}
-              </a>
-            ),
             code: (chunk) => (
-              <CodeCopy
-                text={
-                  "flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo"
-                }
-              />
+              <CodeCopy text="flatpak install flathub io.github.kolunmi.Bazaar" />
             ),
           })}
         </li>
@@ -1484,6 +1466,20 @@ const Solus = ({ locale }: { locale: string }) => {
                 },
               ],
             },
+            {
+              url: "https://flathub.org/setup/Solus",
+              name: t("distros.solus.step-4.name"),
+              itemListElement: [
+                {
+                  type: "HowToDirection",
+                  text: t
+                    .raw("distros.solus.step-4.text")
+                    .replace(/<[^>]*>/g, "")
+                    .replace(/\s{2,}/g, " ")
+                    .trim(),
+                },
+              ],
+            },
           ]}
         />
 
@@ -1520,6 +1516,15 @@ const Solus = ({ locale }: { locale: string }) => {
         <li>
           <h2>{t("distros.solus.step-3.name")}</h2>
           {t.rich("distros.solus.step-3.text", {
+            text: (chunk) => <p>{chunk}</p>,
+            code: () => (
+              <CodeCopy text="flatpak install flathub io.github.kolunmi.Bazaar" />
+            ),
+          })}
+        </li>
+        <li>
+          <h2>{t("distros.solus.step-4.name")}</h2>
+          {t.rich("distros.solus.step-4.text", {
             text: (chunk) => <p>{chunk}</p>,
             link: (chunk) => <Link href="/">{chunk}</Link>,
           })}
@@ -1625,10 +1630,12 @@ const Alpine = ({ locale }: { locale: string }) => {
           {t.rich("distros.alpine.step-2.text", {
             text: (chunk) => <p>{chunk}</p>,
             code: (chunk) => (
-              <CodeCopy text={"doas apk add gnome-software-plugin-flatpak"} />
+              <CodeCopy text="flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo" />
             ),
-            codeDiscover: (chunk) => (
-              <CodeCopy text={"doas apk add discover-backend-flatpak"} />
+            filelink: (chunk) => (
+              <a href="https://dl.flathub.org/repo/flathub.flatpakrepo">
+                {chunk}
+              </a>
             ),
           })}
         </li>
@@ -1637,17 +1644,8 @@ const Alpine = ({ locale }: { locale: string }) => {
           <h2>{t("distros.alpine.step-3.name")}</h2>
           {t.rich("distros.alpine.step-3.text", {
             text: (chunk) => <p>{chunk}</p>,
-            filelink: (chunk) => (
-              <a href="https://dl.flathub.org/repo/flathub.flatpakrepo">
-                {chunk}
-              </a>
-            ),
             code: (chunk) => (
-              <CodeCopy
-                text={
-                  "flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo"
-                }
-              />
+              <CodeCopy text="flatpak install flathub io.github.kolunmi.Bazaar" />
             ),
           })}
         </li>
@@ -2272,6 +2270,35 @@ const Zorin_OS = ({ locale }: { locale: string }) => {
           header: (chunk) => <h2>{chunk}</h2>,
           text: (chunk) => <p>{chunk}</p>,
         })}
+        <HowToJsonLd
+          useAppDir={true}
+          name={t("distros.zorin_os.distroName")}
+          step={[
+            {
+              url: "https://flathub.org/setup/Zorin%20OS",
+              name: t("distros.zorin_os.step-1.name"),
+              itemListElement: [
+                {
+                  type: "HowToDirection",
+                  text: t
+                    .raw("distros.zorin_os.step-1.text")
+                    .replace(/<[^>]*>/g, "")
+                    .replace(/\s{2,}/g, " ")
+                    .trim(),
+                },
+              ],
+            },
+          ]}
+        />
+        <li>
+          <h2>{t("distros.zorin_os.step-1.name")}</h2>
+          {t.rich("distros.zorin_os.step-1.text", {
+            text: (chunk) => <p>{chunk}</p>,
+            code: () => (
+              <CodeCopy text="flatpak install flathub io.github.kolunmi.Bazaar" />
+            ),
+          })}
+        </li>
       </ol>
     </>
   )
@@ -2502,10 +2529,13 @@ const Pardus = ({ locale }: { locale: string }) => {
           <h2>{t("distros.pardus.step-2.name")}</h2>
           {t.rich("distros.pardus.step-2.text", {
             text: (chunk) => <p>{chunk}</p>,
+            filelink: (chunk) => (
+              <a href="https://dl.flathub.org/repo/flathub.flatpakrepo">
+                {chunk}
+              </a>
+            ),
             code: (chunk) => (
-              <CodeCopy
-                text={"sudo apt install gnome-software-plugin-flatpak"}
-              />
+              <CodeCopy text="flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo" />
             ),
           })}
         </li>
@@ -2514,17 +2544,8 @@ const Pardus = ({ locale }: { locale: string }) => {
           <h2>{t("distros.pardus.step-3.name")}</h2>
           {t.rich("distros.pardus.step-3.text", {
             text: (chunk) => <p>{chunk}</p>,
-            filelink: (chunk) => (
-              <a href="https://dl.flathub.org/repo/flathub.flatpakrepo">
-                {chunk}
-              </a>
-            ),
             code: (chunk) => (
-              <CodeCopy
-                text={
-                  "flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo"
-                }
-              />
+              <CodeCopy text="flatpak install flathub io.github.kolunmi.Bazaar" />
             ),
           })}
         </li>
@@ -3102,6 +3123,35 @@ const Vanilla_OS = ({ locale }: { locale: string }) => {
           ),
           text: (chunk) => <p>{chunk}</p>,
         })}
+        <HowToJsonLd
+          useAppDir={true}
+          name={t("distros.vanilla_os.distroName")}
+          step={[
+            {
+              url: "https://flathub.org/setup/Vanilla%20OS",
+              name: t("distros.vanilla_os.step-1.name"),
+              itemListElement: [
+                {
+                  type: "HowToDirection",
+                  text: t
+                    .raw("distros.vanilla_os.step-1.text")
+                    .replace(/<[^>]*>/g, "")
+                    .replace(/\s{2,}/g, " ")
+                    .trim(),
+                },
+              ],
+            },
+          ]}
+        />
+        <li>
+          <h2>{t("distros.vanilla_os.step-1.name")}</h2>
+          {t.rich("distros.vanilla_os.step-1.text", {
+            text: (chunk) => <p>{chunk}</p>,
+            code: () => (
+              <CodeCopy text="host-shell flatpak --user install flathub io.github.kolunmi.Bazaar" />
+            ),
+          })}
+        </li>
       </ol>
     </>
   )
