@@ -42,6 +42,14 @@ const AdminLayoutClient = ({
       name: "Curation",
       items: [
         {
+          name: "Maintenance Radar",
+          href: "/admin/maintenance",
+          condition: (user: GetUserinfoAuthUserinfoGet200) =>
+            user?.permissions.some(
+              (a) => a === Permission["quality-moderation"],
+            ),
+        },
+        {
           name: "Quality Moderation",
           href: "/admin/quality-moderation",
           condition: (user: GetUserinfoAuthUserinfoGet200) =>
