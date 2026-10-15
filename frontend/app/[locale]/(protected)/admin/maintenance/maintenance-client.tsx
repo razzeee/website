@@ -48,7 +48,6 @@ const queues = [
   ["all", "All active"],
   ["runtime", "Runtime debt"],
   ["stale", "Quiet packages"],
-  ["quality", "Quality failures"],
   ["eol", "Retired, still downloaded"],
   ["unknown", "Missing activity data"],
   ["mine", "Assigned to me"],
@@ -58,7 +57,6 @@ type Queue = (typeof queues)[number][0]
 const signalLabels = {
   runtime: "EOL runtime",
   stale: "Quiet package",
-  quality: "Quality failure",
   eol: "EOL app",
   unknown: "Unknown activity",
 }
@@ -240,9 +238,6 @@ function CaseEditor({
           <Link href={`/apps/${app.app_id}`}>
             App page <ArrowUpRight data-icon="inline-end" />
           </Link>
-        </Button>
-        <Button variant="outline" asChild>
-          <Link href="/admin/quality-moderation">Quality Moderation queue</Link>
         </Button>
         <Button variant="outline" asChild>
           <a
@@ -443,9 +438,8 @@ function CaseEditor({
                 disabled={mutation.isPending}
               />
               <FieldDescription>
-                Reopens automatically when package, runtime, EOL, or
-                failed-check evidence changes. Daily age and download
-                fluctuations do not reopen it.
+                Reopens automatically when package, runtime, or EOL evidence
+                changes. Daily age and download fluctuations do not reopen it.
               </FieldDescription>
             </Field>
             <Button
@@ -798,9 +792,9 @@ export default function MaintenanceClient() {
         <Alert>
           <AlertTitle>Old does not necessarily mean neglected</AlertTitle>
           <AlertDescription>
-            A finished app can be healthy without new releases. Runtime support,
-            package activity, and quality findings are separate signals.
-            Upstream/build/maintainer evidence is not available yet.
+            A finished app can be healthy without new releases. Runtime support
+            and package activity are separate signals. Upstream/build/maintainer
+            evidence is not available yet.
           </AlertDescription>
         </Alert>
       </div>
