@@ -2,13 +2,13 @@
 
 import hashlib
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Literal, Self
 
 from pydantic import BaseModel, Field, model_validator
 
-SignalKind = Literal["stale", "runtime", "quality", "eol", "unknown"]
+SignalKind = Literal["stale", "runtime", "eol", "unknown"]
 
 
 def naive_utc(value: datetime) -> datetime:
@@ -24,7 +24,6 @@ class Evidence:
     runtime: str | None = None
     runtime_eol: bool | None = None
     is_eol: bool = False
-    failed_guidelines: list[str] = field(default_factory=list)
 
 
 class MaintenanceSignal(BaseModel):
@@ -125,17 +124,6 @@ def assess(evidence: Evidence, now: datetime, stale_days: int = 365) -> Maintena
                 next_step="Compare upstream releases and packaging activity. Age alone is not abandonment.",
             )
         )
-    if evidence.failed_guidelines:
-        signals.append(
-            MaintenanceSignal(
-                kind="quality",
-                severity="medium",
-                confidence="confirmed",
-                evidence="Failed quality checks: "
-                + ", ".join(sorted(evidence.failed_guidelines)),
-                next_step="Review the failed checks in Quality Moderation and coordinate fixes.",
-            )
-        )
     if updated is None:
         signals.append(
             MaintenanceSignal(
@@ -154,7 +142,6 @@ def assess(evidence: Evidence, now: datetime, stale_days: int = 365) -> Maintena
                 "runtime": evidence.runtime,
                 "runtime_eol": evidence.runtime_eol,
                 "eol": evidence.is_eol,
-                "failed": sorted(evidence.failed_guidelines),
             },
             sort_keys=True,
         ).encode()
@@ -232,7 +219,7 @@ def dashboard(
             continue
         if queue == "mine" and case.owner_id != user_id:
             continue
-        if queue in ("stale", "runtime", "quality", "eol", "unknown") and not any(
+        if queue in ("stale", "runtime", "eol", "unknown") and not any(
             s.kind == queue for s in case.signals
         ):
             continue

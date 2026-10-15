@@ -53,27 +53,6 @@ def load_cases(
         .filter(models.App.app_id.in_(runtime_ids))
         .all()
     }
-    failed: dict[str, list[str]] = {}
-    for row in (
-        db.session.query(
-            models.QualityModeration.app_id, models.QualityModeration.guideline_id
-        )
-        .join(
-            models.Guideline,
-            models.Guideline.id == models.QualityModeration.guideline_id,
-        )
-        .join(models.App, models.App.app_id == models.QualityModeration.app_id)
-        .filter(
-            models.QualityModeration.app_id.in_(ids),
-            models.QualityModeration.passed == False,
-            models.Guideline.needed_to_pass_since <= now.date(),
-            (models.App.is_fullscreen_app == False)
-            | (models.Guideline.show_on_fullscreen_app == True),
-            models.QualityModeration.guideline_id != "general-runtime-not-eol",
-        )
-        .all()
-    ):
-        failed.setdefault(row.app_id, []).append(row.guideline_id)
     triage = {
         row.app_id: row
         for row in db.session.query(models.MaintenanceTriage)
@@ -110,7 +89,6 @@ def load_cases(
                 runtime=app.runtime,
                 runtime_eol=runtime_eol,
                 is_eol=is_eol,
-                failed_guidelines=failed.get(app.app_id, []),
             ),
             now,
             stale_days,
@@ -127,7 +105,7 @@ def load_cases(
 def get_maintenance_dashboard(
     admin: QualityModeratorDep,
     queue: Literal[
-        "all", "stale", "runtime", "quality", "eol", "unknown", "mine", "snoozed"
+        "all", "stale", "runtime", "eol", "unknown", "mine", "snoozed"
     ] = "all",
     search: str = Query(default="", max_length=200),
     runtime: str | None = Query(default=None, max_length=300),
@@ -203,7 +181,7 @@ def update_maintenance_case(
                 raise HTTPException(422, "A snooze reason is required.")
             state.snoozed_until = now + timedelta(days=body.days)
             state.snooze_reason = body.reason.strip()
-            # Preserve the reviewed snapshot. Later runtime/quality changes
+            # Preserve the reviewed snapshot. Later package/runtime changes
             # must invalidate this snooze, not become part of its baseline.
             state.fingerprint = body.expected_fingerprint
         elif body.action == "wake":

@@ -55,7 +55,8 @@ def test_snooze_ignores_daily_age_downloads_and_threshold_but_wakes_on_evidence(
     later = assess(evidence, NOW + timedelta(days=1), 180)
     apply_triage(later, state, NOW + timedelta(days=1), "Moderator")
     assert later.snoozed and not later.reopened
-    evidence.failed_guidelines = ["screenshots"]
+    evidence.runtime = "org.Runtime/x86_64/old"
+    evidence.runtime_eol = True
     changed = assess(evidence, NOW)
     apply_triage(changed, state, NOW)
     assert changed.reopened and not changed.snoozed
@@ -297,7 +298,7 @@ def test_api_claim_notes_snooze_reopen_and_conflicts(maintenance_api):
     assert response.json()["snoozed_until"] is None
 
 
-def test_api_runtime_branch_scope_quality_and_validation(maintenance_api):
+def test_api_runtime_branch_scope_and_guideline_failures_are_ignored(maintenance_api):
     client, current, Session = maintenance_api
     current["user_id"] = 1
     from app import models
@@ -331,9 +332,11 @@ def test_api_runtime_branch_scope_quality_and_validation(maintenance_api):
         )
     case = client.get("/admin/maintenance/org.Test.App").json()
     assert case["runtime_eol"] is False
-    assert [s["kind"] for s in case["signals"]] == ["quality"]
+    assert not case["signals"]
+    assert client.get("/admin/maintenance").json()["total"] == 0
     assert client.get("/admin/maintenance?queue=runtime").json()["total"] == 0
-    assert client.get("/admin/maintenance?search=TEST").json()["total"] == 1
+    assert client.get("/admin/maintenance?search=TEST").json()["total"] == 0
+    assert client.get("/admin/maintenance?queue=quality").status_code == 422
     assert client.get("/admin/maintenance?stale_days=1").status_code == 422
     assert client.get("/admin/maintenance?page=0").status_code == 422
     assert client.get("/admin/maintenance?queue=invalid").status_code == 422
@@ -347,7 +350,7 @@ def test_api_runtime_branch_scope_quality_and_validation(maintenance_api):
     )
 
 
-@pytest.mark.parametrize("change", ["runtime", "package", "quality"])
+@pytest.mark.parametrize("change", ["runtime", "package", "eol"])
 def test_snooze_rejects_unreviewed_evidence_even_when_version_is_unchanged(
     maintenance_api, change
 ):
@@ -374,23 +377,7 @@ def test_snooze_rejects_unreviewed_evidence_even_when_version_is_unchanged(
         elif change == "package":
             app.last_updated_at = NOW - timedelta(days=450)
         else:
-            session.add(models.GuidelineCategory(id="general", order=1))
-            session.flush()
-            session.add(
-                models.Guideline(
-                    id="new-check",
-                    url="https://example.org",
-                    needed_to_pass_since=NOW.date(),
-                    order=1,
-                    guideline_category_id="general",
-                )
-            )
-            session.flush()
-            session.add(
-                models.QualityModeration(
-                    app_id="org.Test.App", guideline_id="new-check", passed=False
-                )
-            )
+            app.is_eol = True
     updated = client.get(path).json()
     assert updated["version"] == viewed["version"]
     assert updated["fingerprint"] != viewed["fingerprint"]
@@ -419,6 +406,49 @@ def test_snooze_rejects_unreviewed_evidence_even_when_version_is_unchanged(
         },
     )
     assert response.status_code == 200 and response.json()["snoozed"]
+
+
+def test_guideline_failures_do_not_change_evidence_or_reopen_snoozes(maintenance_api):
+    client, current, Session = maintenance_api
+    current["user_id"] = 1
+    from app import models
+
+    path = "/admin/maintenance/org.Test.App"
+    viewed = client.get(path).json()
+    response = client.post(
+        path,
+        json={
+            "action": "snooze",
+            "version": viewed["version"],
+            "reason": "Waiting for runtime migration",
+            "expected_fingerprint": viewed["fingerprint"],
+        },
+    )
+    assert response.status_code == 200
+    with Session.begin() as session:
+        session.add(models.GuidelineCategory(id="general", order=1))
+        session.flush()
+        session.add(
+            models.Guideline(
+                id="failed-check",
+                url="https://example.org",
+                needed_to_pass_since=NOW.date(),
+                order=1,
+                guideline_category_id="general",
+            )
+        )
+        session.flush()
+        session.add(
+            models.QualityModeration(
+                app_id="org.Test.App", guideline_id="failed-check", passed=False
+            )
+        )
+    unchanged = client.get(path).json()
+    assert unchanged["fingerprint"] == viewed["fingerprint"]
+    assert unchanged["signals"] == viewed["signals"]
+    assert unchanged["snoozed"] and not unchanged["reopened"]
+    assert client.get("/admin/maintenance").json()["total"] == 0
+    assert client.get("/admin/maintenance?queue=snoozed").json()["total"] == 1
 
 
 def test_snooze_requires_fingerprint_but_ignores_download_fluctuations(maintenance_api):

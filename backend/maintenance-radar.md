@@ -2,6 +2,8 @@
 
 The admin tool lives at `/admin/maintenance` and requires `quality-moderation`
 on both the frontend and every API endpoint. Responses are private.
+This reuses the existing moderator permission; guideline failures are not
+maintenance signals and do not affect snoozes.
 
 ## Deployment
 
@@ -16,12 +18,10 @@ external service is required.
   to investigate, never a claim of abandonment.
 - Runtime debt: the published runtime branch's stored EOL status, not an
   inferred support deadline. Unknown/malformed/missing runtimes remain unknown.
-- Quality failures: explicitly failed, currently applicable guidelines. Unrated
-  checks do not count as failures. Runtime checks are represented separately.
 - EOL exposure: the published app branch is EOL and receives recent downloads.
 - Missing update timestamps: unknown activity, not stale activity.
 
-Cases sort by severity (runtime/EOL, stale/quality, unknown), then seven-day
+Cases sort by severity (runtime/EOL, stale, unknown), then seven-day
 download counts, then package age, with app ID as a deterministic tie-breaker.
 Downloads are **not** unique users or active installations.
 
@@ -30,7 +30,7 @@ Opening a campaign shows its active runtime-debt queue. No future runtime sunset
 dates are guessed from runtime version numbers or historical EOL timestamps.
 
 Snoozes expire or become ineffective when package timestamp, runtime reference,
-runtime EOL status, app EOL status, or failed guideline IDs change. Daily aging,
+runtime EOL status, or app EOL status change. Daily aging,
 download counts, and filter thresholds do not invalidate a snooze. Cases whose
 signals disappear leave the queue; investigation state remains available in the
 detail API. Claims cannot be taken from another moderator. Concurrent edits
