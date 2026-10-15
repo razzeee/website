@@ -1,3 +1,4 @@
+import hashlib
 import os
 import sys
 from contextlib import contextmanager
@@ -8,9 +9,86 @@ import pytest
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.maintenance import Evidence, apply_triage, assess, dashboard
+from app import maintenance as maintenance_evidence
+from app.maintenance import (
+    Evidence,
+    apply_triage,
+    assess,
+    dashboard,
+    evidence_fingerprint,
+    fingerprint_matches_evidence,
+    same_fingerprint,
+)
 
 NOW = datetime(2026, 10, 13, 12)
+
+
+def _triage(fingerprint):
+    return SimpleNamespace(
+        owner_id=1,
+        notes="Contacted maintainer",
+        version=1,
+        snoozed_until=NOW + timedelta(days=30),
+        snooze_reason="Waiting",
+        fingerprint=fingerprint,
+    )
+
+
+def _enable_v2_fingerprints(monkeypatch):
+    """Simulate a future schema adding the app name without changing v1."""
+    v1 = maintenance_evidence._FINGERPRINT_BUILDERS[1]
+
+    def v2(evidence):
+        return hashlib.sha256(
+            (v1(evidence) + "\n" + evidence.name).encode()
+        ).hexdigest()
+
+    monkeypatch.setitem(maintenance_evidence._FINGERPRINT_BUILDERS, 2, v2)
+    monkeypatch.setattr(maintenance_evidence, "CURRENT_FINGERPRINT_VERSION", 2)
+
+
+def test_fingerprint_v1_is_a_frozen_persisted_contract():
+    evidence = Evidence(
+        "app", "App", NOW, runtime="org.Runtime/x86_64/old", runtime_eol=True
+    )
+    digest = "21768c4b03db7b216b302ee5e4e39bcd567ecf410c6b0912b4be51c4ab0414f7"
+    assert evidence_fingerprint(evidence) == "v1:" + digest
+    assert same_fingerprint(digest, "v1:" + digest)
+    assert fingerprint_matches_evidence(evidence, digest)
+    assert not same_fingerprint("invalid", "invalid")
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+def test_fingerprint_upgrade_preserves_snoozes_using_the_original_fields(
+    monkeypatch, legacy
+):
+    evidence = Evidence("app", "App", NOW - timedelta(days=500))
+    saved = evidence_fingerprint(evidence)
+    if legacy:
+        saved = saved.partition(":")[2]
+    state = _triage(saved)
+    _enable_v2_fingerprints(monkeypatch)
+    previous_v2 = evidence_fingerprint(evidence)
+    evidence.name = "Renamed app"
+    changed_format = assess(evidence, NOW)
+    assert changed_format.fingerprint.startswith("v2:")
+    assert changed_format.fingerprint != previous_v2
+    apply_triage(changed_format, state, NOW, evidence)
+    assert changed_format.snoozed and not changed_format.reopened
+    # Meaningful changes covered by the old schema must still wake the case.
+    evidence.runtime = "org.Runtime/x86_64/old"
+    evidence.runtime_eol = True
+    changed_evidence = assess(evidence, NOW)
+    apply_triage(changed_evidence, state, NOW, evidence)
+    assert changed_evidence.reopened and not changed_evidence.snoozed
+
+
+@pytest.mark.parametrize("fingerprint", ["v99:" + "1" * 64, "invalid", ""])
+def test_unverifiable_snooze_fingerprints_require_review(fingerprint):
+    evidence = Evidence("app", "App", NOW - timedelta(days=500))
+    case = assess(evidence, NOW)
+    apply_triage(case, _triage(fingerprint), NOW, evidence)
+    assert case.reopened and not case.snoozed
 
 
 def test_age_is_investigation_not_abandonment():
@@ -53,15 +131,15 @@ def test_snooze_ignores_daily_age_downloads_and_threshold_but_wakes_on_evidence(
     )
     evidence.installs_last_7_days = 20
     later = assess(evidence, NOW + timedelta(days=1), 180)
-    apply_triage(later, state, NOW + timedelta(days=1), "Moderator")
+    apply_triage(later, state, NOW + timedelta(days=1), evidence, "Moderator")
     assert later.snoozed and not later.reopened
     evidence.runtime = "org.Runtime/x86_64/old"
     evidence.runtime_eol = True
     changed = assess(evidence, NOW)
-    apply_triage(changed, state, NOW)
+    apply_triage(changed, state, NOW, evidence)
     assert changed.reopened and not changed.snoozed
     expired = assess(evidence, NOW + timedelta(days=31))
-    apply_triage(expired, state, NOW + timedelta(days=31))
+    apply_triage(expired, state, NOW + timedelta(days=31), evidence)
     assert not expired.snoozed and not expired.reopened
 
 
@@ -140,17 +218,32 @@ def maintenance_api():
     Session = sessionmaker(bind=connection, expire_on_commit=False)
     with Session.begin() as session:
         session.add_all(
-            [models.FlathubUser(id=i, display_name=f"Moderator {i}") for i in (1, 2, 3)]
+            [
+                models.FlathubUser(id=i, display_name=f"Moderator {i}")
+                for i in (1, 2, 3, 4)
+            ]
         )
-        session.add(models.Permission(name="quality-moderation"))
-        session.add(models.Role(id=1, name="quality-moderator"))
+        session.add_all(
+            [
+                models.Permission(name="moderation"),
+                models.Permission(name="quality-moderation"),
+            ]
+        )
+        session.add_all(
+            [
+                models.Role(id=1, name="moderator"),
+                models.Role(id=2, name="quality-moderator"),
+            ]
+        )
         session.flush()
+        session.add(models.role_permission(role_id=1, permission_name="moderation"))
         session.add(
-            models.role_permission(role_id=1, permission_name="quality-moderation")
+            models.role_permission(role_id=2, permission_name="quality-moderation")
         )
         session.add_all(
             [models.flathubuser_role(flathubuser_id=i, role_id=1) for i in (1, 3)]
         )
+        session.add(models.flathubuser_role(flathubuser_id=4, role_id=2))
         session.add(
             models.App(
                 app_id="org.Test.App",
@@ -222,13 +315,29 @@ def test_api_auth_and_private_responses(maintenance_api):
         response = getattr(client, method)(path, **kwargs)
         assert response.status_code == 401
         assert response.headers["Cache-Control"] == "private"
-    current["user_id"] = 2
-    assert client.get("/admin/maintenance").status_code == 403
+    # Neither ordinary users nor quality-only moderators can use these routes.
+    for user_id in (2, 4):
+        current["user_id"] = user_id
+        for method, path in (
+            ("get", "/admin/maintenance"),
+            ("get", "/admin/maintenance/org.Test.App"),
+            ("post", "/admin/maintenance/org.Test.App"),
+        ):
+            kwargs = (
+                {"json": {"action": "claim", "version": 0}} if method == "post" else {}
+            )
+            response = getattr(client, method)(path, **kwargs)
+            assert response.status_code == 403
+            assert response.headers["Cache-Control"] == "private"
+    # A normal moderator has access without quality-moderation permission.
+    current["user_id"] = 1
+    assert client.get("/admin/maintenance").status_code == 200
+    assert client.get("/admin/maintenance/org.Test.App").status_code == 200
     assert (
         client.post(
             "/admin/maintenance/org.Test.App", json={"action": "claim", "version": 0}
         ).status_code
-        == 403
+        == 200
     )
 
 
@@ -296,6 +405,85 @@ def test_api_claim_notes_snooze_reopen_and_conflicts(maintenance_api):
     assert client.get("/admin/maintenance").json()["total"] == 1
     response = client.post(path, json={"action": "wake", "version": 3})
     assert response.json()["snoozed_until"] is None
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+def test_stored_snoozes_survive_fingerprint_schema_upgrade(
+    maintenance_api, monkeypatch, legacy
+):
+    client, current, Session = maintenance_api
+    current["user_id"] = 1
+    from app import models
+
+    path = "/admin/maintenance/org.Test.App"
+    viewed = client.get(path).json()
+    saved = viewed["fingerprint"]
+    if legacy:
+        saved = saved.partition(":")[2]
+    response = client.post(
+        path,
+        json={
+            "action": "snooze",
+            "version": 0,
+            "reason": "Waiting",
+            "expected_fingerprint": saved,
+        },
+    )
+    assert response.status_code == 200 and response.json()["snoozed"]
+    _enable_v2_fingerprints(monkeypatch)
+    with Session.begin() as session:
+        app = session.query(models.App).filter_by(app_id="org.Test.App").one()
+        app.appstream = {"name": "New name included only in v2"}
+    upgraded = client.get(path).json()
+    assert upgraded["fingerprint"].startswith("v2:")
+    assert upgraded["snoozed"] and not upgraded["reopened"]
+    assert client.get("/admin/maintenance").json()["total"] == 0
+    with Session() as session:
+        assert (
+            session.get(models.MaintenanceTriage, "org.Test.App").fingerprint == saved
+        )
+    with Session.begin() as session:
+        session.query(models.App).filter_by(
+            app_id="org.Test.App"
+        ).one().last_updated_at = NOW - timedelta(days=400)
+    changed = client.get(path).json()
+    assert changed["reopened"] and not changed["snoozed"]
+
+
+def test_open_editors_must_refresh_after_fingerprint_schema_upgrade(
+    maintenance_api, monkeypatch
+):
+    client, current, Session = maintenance_api
+    current["user_id"] = 1
+    from app import models
+
+    path = "/admin/maintenance/org.Test.App"
+    viewed = client.get(path).json()
+    _enable_v2_fingerprints(monkeypatch)
+    response = client.post(
+        path,
+        json={
+            "action": "snooze",
+            "version": 0,
+            "reason": "Waiting",
+            "expected_fingerprint": viewed["fingerprint"],
+        },
+    )
+    assert response.status_code == 409
+    with Session() as session:
+        assert session.get(models.MaintenanceTriage, "org.Test.App") is None
+    refreshed = client.get(path).json()
+    assert refreshed["fingerprint"].startswith("v2:")
+    response = client.post(
+        path,
+        json={
+            "action": "snooze",
+            "version": 0,
+            "reason": "Reviewed",
+            "expected_fingerprint": refreshed["fingerprint"],
+        },
+    )
+    assert response.status_code == 200 and response.json()["snoozed"]
 
 
 def test_api_runtime_branch_scope_and_guideline_failures_are_ignored(maintenance_api):

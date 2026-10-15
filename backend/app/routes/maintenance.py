@@ -5,7 +5,7 @@ from fastapi import APIRouter, FastAPI, HTTPException, Query
 
 from .. import cache, models, utils
 from ..database import get_db
-from ..login_info import QualityModeratorDep
+from ..login_info import ModeratorDep
 from ..maintenance import (
     Evidence,
     MaintenanceAction,
@@ -14,6 +14,7 @@ from ..maintenance import (
     apply_triage,
     assess,
     dashboard,
+    same_fingerprint,
 )
 
 router = APIRouter(prefix="/admin/maintenance", tags=["maintenance"])
@@ -80,21 +81,20 @@ def load_cases(
             app.is_eol
             and (not app.eol_branches or (app.branch or "stable") in app.eol_branches)
         )
-        case = assess(
-            Evidence(
-                app_id=app.app_id,
-                name=app.name or app.app_id,
-                last_updated_at=app.last_updated_at,
-                installs_last_7_days=app.installs_last_7_days,
-                runtime=app.runtime,
-                runtime_eol=runtime_eol,
-                is_eol=is_eol,
-            ),
-            now,
-            stale_days,
+        evidence = Evidence(
+            app_id=app.app_id,
+            name=app.name or app.app_id,
+            last_updated_at=app.last_updated_at,
+            installs_last_7_days=app.installs_last_7_days,
+            runtime=app.runtime,
+            runtime_eol=runtime_eol,
+            is_eol=is_eol,
         )
+        case = assess(evidence, now, stale_days)
         state = triage.get(app.app_id)
-        apply_triage(case, state, now, owners.get(state.owner_id) if state else None)
+        apply_triage(
+            case, state, now, evidence, owners.get(state.owner_id) if state else None
+        )
         case.owned_by_me = case.owner_id is not None and case.owner_id == user_id
         result.append(case)
     return result
@@ -103,7 +103,7 @@ def load_cases(
 @router.get("")
 @cache.private
 def get_maintenance_dashboard(
-    admin: QualityModeratorDep,
+    admin: ModeratorDep,
     queue: Literal[
         "all", "stale", "runtime", "eol", "unknown", "mine", "snoozed"
     ] = "all",
@@ -132,7 +132,7 @@ def get_maintenance_dashboard(
 @cache.private
 def get_maintenance_case(
     app_id: str,
-    admin: QualityModeratorDep,
+    admin: ModeratorDep,
     stale_days: int = Query(default=365, ge=30, le=3650),
 ) -> MaintenanceCase:
     with get_db("writer") as db:
@@ -145,7 +145,7 @@ def get_maintenance_case(
 @router.post("/{app_id}")
 @cache.private
 def update_maintenance_case(
-    app_id: str, body: MaintenanceAction, admin: QualityModeratorDep
+    app_id: str, body: MaintenanceAction, admin: ModeratorDep
 ) -> MaintenanceCase:
     now = utils.utcnow()
     with get_db("writer") as db:
@@ -163,7 +163,9 @@ def update_maintenance_case(
             raise HTTPException(409, "This case changed. Refresh it before editing.")
         if body.action == "snooze":
             viewed_case = load_cases(db, now, 365, app_id)[0]
-            if body.expected_fingerprint != viewed_case.fingerprint:
+            # New snoozes must review the current schema. Existing stored
+            # snoozes remain comparable using their original schema version.
+            if not same_fingerprint(body.expected_fingerprint, viewed_case.fingerprint):
                 raise HTTPException(
                     409, "Maintenance evidence changed. Refresh it before snoozing."
                 )

@@ -2,6 +2,8 @@
 
 import hashlib
 import json
+import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Literal, Self
@@ -9,6 +11,8 @@ from typing import Literal, Self
 from pydantic import BaseModel, Field, model_validator
 
 SignalKind = Literal["stale", "runtime", "eol", "unknown"]
+FINGERPRINT_PATTERN = r"^(?:v[1-9][0-9]{0,13}:)?[0-9a-f]{64}$"
+CURRENT_FINGERPRINT_VERSION = 1
 
 
 def naive_utc(value: datetime) -> datetime:
@@ -24,6 +28,54 @@ class Evidence:
     runtime: str | None = None
     runtime_eol: bool | None = None
     is_eol: bool = False
+
+
+def _fingerprint_v1(evidence: Evidence) -> str:
+    """Frozen schema and serialization, also used by legacy unprefixed hashes."""
+    updated = naive_utc(evidence.last_updated_at) if evidence.last_updated_at else None
+    return hashlib.sha256(
+        json.dumps(
+            {
+                "updated": updated.isoformat() if updated else None,
+                "runtime": evidence.runtime,
+                "runtime_eol": evidence.runtime_eol,
+                "eol": evidence.is_eol,
+            },
+            sort_keys=True,
+        ).encode()
+    ).hexdigest()
+
+
+# This is a persisted-data contract: add a builder and bump the current version
+# when fields or serialization change. Retain old builders so existing snoozes
+# still compare their originally reviewed evidence, without a backlog-wide wake.
+_FINGERPRINT_BUILDERS: dict[int, Callable[[Evidence], str]] = {1: _fingerprint_v1}
+
+
+def evidence_fingerprint(evidence: Evidence, version: int | None = None) -> str:
+    version = CURRENT_FINGERPRINT_VERSION if version is None else version
+    return f"v{version}:{_FINGERPRINT_BUILDERS[version](evidence)}"
+
+
+def _parse_fingerprint(value: str | None) -> tuple[int, str] | None:
+    if value is None or re.fullmatch(FINGERPRINT_PATTERN, value) is None:
+        return None
+    prefix, separator, digest = value.partition(":")
+    return (int(prefix[1:]), digest) if separator else (1, value)
+
+
+def same_fingerprint(left: str | None, right: str) -> bool:
+    parsed = _parse_fingerprint(left)
+    return parsed is not None and parsed == _parse_fingerprint(right)
+
+
+def fingerprint_matches_evidence(evidence: Evidence, saved: str) -> bool:
+    parsed = _parse_fingerprint(saved)
+    if parsed is None or parsed[0] not in _FINGERPRINT_BUILDERS:
+        # Unknown/retired formats cannot prove the evidence is unchanged.
+        # Require review rather than silently hiding an unverifiable case.
+        return False
+    return same_fingerprint(saved, evidence_fingerprint(evidence, parsed[0]))
 
 
 class MaintenanceSignal(BaseModel):
@@ -78,7 +130,9 @@ class MaintenanceAction(BaseModel):
     days: int = Field(default=30, ge=1, le=365)
     reason: str = Field(default="", max_length=2000)
     notes: str = Field(default="", max_length=10000)
-    expected_fingerprint: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    expected_fingerprint: str | None = Field(
+        default=None, max_length=80, pattern=FINGERPRINT_PATTERN
+    )
 
     @model_validator(mode="after")
     def require_snooze_fingerprint(self) -> Self:
@@ -135,17 +189,6 @@ def assess(evidence: Evidence, now: datetime, stale_days: int = 365) -> Maintena
             )
         )
     # Daily age, download counts and the user's threshold must not invalidate a snooze.
-    fingerprint = hashlib.sha256(
-        json.dumps(
-            {
-                "updated": updated.isoformat() if updated else None,
-                "runtime": evidence.runtime,
-                "runtime_eol": evidence.runtime_eol,
-                "eol": evidence.is_eol,
-            },
-            sort_keys=True,
-        ).encode()
-    ).hexdigest()
     return MaintenanceCase(
         app_id=evidence.app_id,
         name=evidence.name,
@@ -155,12 +198,16 @@ def assess(evidence: Evidence, now: datetime, stale_days: int = 365) -> Maintena
         runtime=evidence.runtime,
         runtime_eol=evidence.runtime_eol,
         signals=signals,
-        fingerprint=fingerprint,
+        fingerprint=evidence_fingerprint(evidence),
     )
 
 
 def apply_triage(
-    case: MaintenanceCase, triage, now: datetime, owner_name: str | None = None
+    case: MaintenanceCase,
+    triage,
+    now: datetime,
+    evidence: Evidence,
+    owner_name: str | None = None,
 ) -> None:
     if triage is None:
         return
@@ -173,7 +220,9 @@ def apply_triage(
     pending_snooze = triage.snoozed_until is not None and naive_utc(
         triage.snoozed_until
     ) > naive_utc(now)
-    case.reopened = pending_snooze and triage.fingerprint != case.fingerprint
+    case.reopened = pending_snooze and not fingerprint_matches_evidence(
+        evidence, triage.fingerprint
+    )
     case.snoozed = pending_snooze and not case.reopened
 
 
