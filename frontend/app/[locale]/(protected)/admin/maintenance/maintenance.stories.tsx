@@ -41,7 +41,7 @@ const fixture: MaintenanceCase[] = [
           "Compare upstream releases and packaging activity. Age alone is not abandonment.",
       },
     ],
-    fingerprint: "1".repeat(64),
+    fingerprint: "v1:" + "1".repeat(64),
     owner_id: null,
     owner_name: null,
     owned_by_me: false,
@@ -70,7 +70,7 @@ const fixture: MaintenanceCase[] = [
         next_step: "Check the manifest and plan a supported-runtime migration.",
       },
     ],
-    fingerprint: "2".repeat(64),
+    fingerprint: "v1:" + "2".repeat(64),
     owner_id: 42,
     owner_name: "Demo moderator",
     owned_by_me: true,
@@ -99,7 +99,7 @@ const fixture: MaintenanceCase[] = [
           "Check repository history before drawing conclusions about maintenance.",
       },
     ],
-    fingerprint: "3".repeat(64),
+    fingerprint: "v1:" + "3".repeat(64),
     owner_id: null,
     owner_name: null,
     owned_by_me: false,
@@ -247,7 +247,7 @@ function DemoProvider({ children }: { children: React.ReactNode }) {
               loading: false,
               info: {
                 displayname: "Demo moderator",
-                permissions: [Permission["quality-moderation"]],
+                permissions: [Permission.moderation],
                 invite_code: "demo",
                 accepted_publisher_agreement_at: null,
                 default_account: { login: "demo", provider: "github" },
@@ -282,7 +282,7 @@ const meta = {
           ...structuredClone(fixture[0]),
           app_id: `org.example.Backlog${String(index + 1).padStart(2, "0")}`,
           name: `Backlog ${index + 1}`,
-          fingerprint: (index + 10).toString(16).padStart(64, "0"),
+          fingerprint: "v1:" + (index + 10).toString(16).padStart(64, "0"),
         }))
       } else if (parameters.maintenanceScenario === "evidence-conflict") {
         cases[0].runtime_eol = false
@@ -325,7 +325,7 @@ export const SnoozeRejectsUnreviewedEvidence: Story = {
     cases[0].runtime_eol = true
     cases[0].runtime = fixture[0].runtime
     cases[0].signals.unshift(fixture[0].signals[0])
-    cases[0].fingerprint = "a".repeat(64)
+    cases[0].fingerprint = "v1:" + "a".repeat(64)
     await userEvent.click(screen.getByRole("button", { name: "Snooze case" }))
     await screen.findByText(/Maintenance evidence changed/)
     await expect(cases[0].snoozed).toBe(false)

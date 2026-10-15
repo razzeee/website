@@ -69,7 +69,7 @@ describe("maintenance action queue", () => {
       { ...app, owner_id: 42, owner_name: "Moderator", reopened: true },
     ])
     expect(html).toContain("Claimed · Moderator")
-    expect(html).toContain("Evidence changed · reopened")
+    expect(html).toContain("Review needed · reopened")
   })
 
   it("explains an empty queue without claiming catalog health", () => {

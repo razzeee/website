@@ -145,7 +145,7 @@ export function RadarQueue({
                   </Badge>
                 ) : null}
                 {app.reopened ? (
-                  <Badge variant="secondary">Evidence changed · reopened</Badge>
+                  <Badge variant="secondary">Review needed · reopened</Badge>
                 ) : null}
                 {app.snoozed ? (
                   <Badge variant="secondary">
@@ -309,8 +309,8 @@ function CaseEditor({
         <Alert>
           <AlertTitle>This case reopened</AlertTitle>
           <AlertDescription>
-            The evidence changed after it was snoozed. Previous reason:{" "}
-            {app.snooze_reason}
+            The evidence changed after it was snoozed, or the saved fingerprint
+            format is no longer supported. Previous reason: {app.snooze_reason}
           </AlertDescription>
         </Alert>
       ) : null}
@@ -482,7 +482,7 @@ function CaseEditor({
 export default function MaintenanceClient() {
   const user = useUserContext()
   const allowed =
-    user.info?.permissions?.includes(Permission["quality-moderation"]) ?? false
+    user.info?.permissions?.includes(Permission.moderation) ?? false
   const [queue, setQueue] = useState<Queue>("all")
   const [searchInput, setSearchInput] = useState("")
   const [search, setSearch] = useState("")
@@ -528,7 +528,7 @@ export default function MaintenanceClient() {
   return (
     <AdminLayoutClient
       condition={(info) =>
-        info?.permissions?.includes(Permission["quality-moderation"]) ?? false
+        info?.permissions?.includes(Permission.moderation) ?? false
       }
     >
       <div className="flex flex-col gap-8 px-2 pb-12 lg:pe-8 [--muted-foreground:color-mix(in_srgb,var(--foreground)_85%,var(--background))]">
