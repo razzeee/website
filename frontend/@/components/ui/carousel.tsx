@@ -56,6 +56,13 @@ function Carousel({
   const [carouselRef, api] = useEmblaCarousel(
     {
       ...opts,
+      breakpoints: {
+        ...opts?.breakpoints,
+        "(prefers-reduced-motion: reduce)": {
+          ...opts?.breakpoints?.["(prefers-reduced-motion: reduce)"],
+          duration: 0,
+        },
+      },
       axis: orientation === "horizontal" ? "x" : "y",
     },
     plugins,
@@ -112,6 +119,7 @@ function Carousel({
     api.on("select", onSelect)
 
     return () => {
+      api?.off("reInit", onSelect)
       api?.off("select", onSelect)
     }
   }, [api, onSelect])
@@ -190,6 +198,7 @@ function CarouselPrevious({
   size = "icon",
   ...props
 }: React.ComponentProps<typeof Button>) {
+  const t = useTranslations()
   const { orientation, scrollPrev, canScrollPrev } = useCarousel()
 
   return (
@@ -209,7 +218,7 @@ function CarouselPrevious({
       {...props}
     >
       <ChevronLeftIcon className="size-7" />
-      <span className="sr-only">Previous slide</span>
+      <span className="sr-only">{t("previous-slide")}</span>
     </Button>
   )
 }
@@ -220,6 +229,7 @@ function CarouselNext({
   size = "icon",
   ...props
 }: React.ComponentProps<typeof Button>) {
+  const t = useTranslations()
   const { orientation, scrollNext, canScrollNext } = useCarousel()
 
   return (
@@ -239,7 +249,7 @@ function CarouselNext({
       {...props}
     >
       <ChevronRightIcon className="size-7" />
-      <span className="sr-only">Next slide</span>
+      <span className="sr-only">{t("next-slide")}</span>
     </Button>
   )
 }

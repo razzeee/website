@@ -10,17 +10,19 @@ import { findBiggestScreenshotSize } from "src/types/Appstream"
 
 import LogoImage from "../LogoImage"
 
-import { useEffect, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { useTheme } from "next-themes"
 import { chooseBrandingColor, getContrastColor } from "@/lib/helpers"
 import { Carousel } from "@/components/ui/carousel"
-import Autoplay, { AutoplayType } from "embla-carousel-autoplay"
+import Autoplay from "embla-carousel-autoplay"
 import { WheelGesturesPlugin } from "embla-carousel-wheel-gestures"
 import { getLangDir } from "rtl-detect"
-import { useLocale } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
 import { Link } from "src/i18n/navigation"
 import { DesktopAppstream } from "src/codegen"
 import { Imgproxy } from "../ImgproxyImage"
+import { Button } from "@/components/ui/button"
+import { PauseIcon, PlayIcon } from "@heroicons/react/24/solid"
 
 export const HeroBanner = ({
   heroBannerData,
@@ -42,15 +44,29 @@ export const HeroBanner = ({
   forceTheme?: "light" | "dark"
 }) => {
   const locale = useLocale()
+  const t = useTranslations()
 
   const [mounted, setMounted] = useState(false)
   const { resolvedTheme } = useTheme()
 
   const [api, setApi] = useState<CarouselApi>()
   const [current, setCurrent] = useState(0)
+  const [reducedMotion, setReducedMotion] = useState(true)
+  const [paused, setPaused] = useState(false)
+  const [hovered, setHovered] = useState(false)
+  const pointerPause = useRef<boolean | null>(null)
+  const followSlideFocus = useRef(false)
+  const hasSlides = heroBannerData.length > 1
+  const canAutoplay = autoplay && hasSlides && !reducedMotion && !forceTheme
+  const rotating = canAutoplay && !paused && !hovered
 
   useEffect(() => {
     setMounted(true)
+    const preference = window.matchMedia("(prefers-reduced-motion: reduce)")
+    const update = () => setReducedMotion(preference.matches)
+    update()
+    preference.addEventListener("change", update)
+    return () => preference.removeEventListener("change", update)
   }, [])
 
   useEffect(() => {
@@ -58,44 +74,58 @@ export const HeroBanner = ({
       return
     }
 
-    const autoPlay = api.plugins()?.autoplay as AutoplayType
-    if (!autoPlay) {
-      return
-    }
-
-    if (current && currentIndex !== -1) {
-      api.scrollTo(currentIndex)
-    }
-    setCurrent(api.selectedScrollSnap() + 1)
-
     const onSelect = () => {
-      setCurrent(api.selectedScrollSnap() + 1)
-      autoPlay.reset()
+      followSlideFocus.current = api
+        .containerNode()
+        .contains(document.activeElement)
+      setCurrent(api.selectedScrollSnap())
     }
-
-    const onPointerDown = () => {
-      autoPlay.stop()
-    }
-
-    const onPointerUp = () => {
-      autoPlay.play()
-    }
-
+    onSelect()
     api.on("select", onSelect)
-    api.on("pointerDown", onPointerDown)
-    api.on("pointerUp", onPointerUp)
+    api.on("reInit", onSelect)
 
     return () => {
       api.off("select", onSelect)
-      api.off("pointerDown", onPointerDown)
-      api.off("pointerUp", onPointerUp)
+      api.off("reInit", onSelect)
     }
-  }, [api, currentIndex])
+  }, [api])
+
+  useLayoutEffect(() => {
+    if (followSlideFocus.current) {
+      api
+        ?.slideNodes()
+        [current]?.querySelector("a")
+        ?.focus({ preventScroll: true })
+      followSlideFocus.current = false
+    }
+  }, [api, current])
+
+  useEffect(() => {
+    if (
+      api &&
+      currentIndex !== undefined &&
+      Number.isInteger(currentIndex) &&
+      currentIndex >= 0 &&
+      currentIndex < heroBannerData.length
+    ) {
+      api.scrollTo(currentIndex, reducedMotion)
+    }
+  }, [api, currentIndex, heroBannerData.length, reducedMotion])
 
   const direction = getLangDir(locale) ?? "ltr"
 
   return (
     <Carousel
+      dir={direction}
+      aria-label={t("featured-apps")}
+      onFocusCapture={() => setPaused(true)}
+      onPointerDownCapture={(event) => {
+        if (!(event.target as HTMLElement).closest("[data-rotation-control]")) {
+          setPaused(true)
+        }
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       opts={{
         loop: true,
         direction,
@@ -104,13 +134,45 @@ export const HeroBanner = ({
         WheelGesturesPlugin(),
         Autoplay({
           delay: 5000,
-          active: autoplay,
+          active: rotating,
         }),
       ]}
       className="overflow-hidden shadow-md rounded-xl"
       setApi={setApi}
     >
-      <CarouselContent className="h-[288px] xl:h-[352px] ms-0">
+      {canAutoplay && (
+        <Button
+          type="button"
+          data-rotation-control
+          variant="secondary"
+          size="icon"
+          className="absolute end-4 bottom-4 z-10 size-11 rounded-full"
+          aria-label={t(paused ? "resume-slideshow" : "pause-slideshow")}
+          onPointerDown={() => {
+            // Focus pauses too; preserve the action requested before focus moved.
+            pointerPause.current = !paused
+          }}
+          onPointerCancel={() => {
+            pointerPause.current = null
+          }}
+          onClick={(event) => {
+            setPaused(
+              event.detail > 0 ? (pointerPause.current ?? !paused) : !paused,
+            )
+            pointerPause.current = null
+          }}
+        >
+          {paused ? (
+            <PlayIcon className="size-5" aria-hidden="true" />
+          ) : (
+            <PauseIcon className="size-5" aria-hidden="true" />
+          )}
+        </Button>
+      )}
+      <CarouselContent
+        className="h-[288px] xl:h-[352px] ms-0"
+        aria-live={rotating ? "off" : "polite"}
+      >
         {heroBannerData.map((data, i) => {
           const fallbackColor = chooseBrandingColor(
             data.appstream?.branding,
@@ -129,7 +191,15 @@ export const HeroBanner = ({
             : "text-flathub-dark-gunmetal dark:text-flathub-lotion"
 
           return (
-            <CarouselItem className="basis-full ps-0" key={data.appstream.id}>
+            <CarouselItem
+              className="basis-full ps-0"
+              key={data.appstream.id}
+              aria-label={t("slide-position", {
+                current: i + 1,
+                total: heroBannerData.length,
+              })}
+              inert={i !== current}
+            >
               <Link
                 href={`/apps/${data.appstream.id}`}
                 passHref
@@ -140,7 +210,7 @@ export const HeroBanner = ({
                       : fallbackColor && fallbackColor.value) ?? "#FF00DC",
                 }}
                 className={clsx(
-                  "flex min-w-0 items-center gap-4 p-4 py-0 duration-500",
+                  "flex min-w-0 items-center gap-4 p-4 py-0 duration-500 motion-reduce:duration-0 focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-current",
                   "hover:cursor-grab",
                   "h-full",
                 )}
@@ -207,7 +277,7 @@ export const HeroBanner = ({
           "hover:text-flathub-black dark:hover:text-flathub-white",
           "hover:bg-flathub-black/10 dark:hover:bg-flathub-white/10",
           "absolute start-4 top-1/2 size-11",
-          forceTheme && "hidden",
+          (forceTheme || !hasSlides) && "hidden",
         )}
         variant="ghost"
       />
@@ -217,7 +287,7 @@ export const HeroBanner = ({
           "hover:text-flathub-black dark:hover:text-flathub-white",
           "hover:bg-flathub-black/10 dark:hover:bg-flathub-white/10",
           "absolute end-4 top-1/2 size-11",
-          forceTheme && "hidden",
+          (forceTheme || !hasSlides) && "hidden",
         )}
         variant="ghost"
       />
