@@ -154,6 +154,72 @@ docker compose up --build
 
 If you're running this locally, you can use http://localhost:7700/ to test the search.
 
+### Manifest dependency index
+
+`/dependencies` on the website searches module-name prefixes (case-insensitive)
+or exact source URLs in published stable x86_64 **app manifest declarations**.
+It does not establish installed contents, release versions, runtime dependencies,
+or canonical package identities. Each match links to a retained manifest snapshot
+and a numeric JSON pointer. Snapshot IDs remain available after refs change or
+are withdrawn. There is no automatic snapshot pruning in this first version.
+
+Apply the Alembic migration and populate the normal app catalog first. Run a small
+pilot through the existing worker before enabling the daily full-catalog job:
+
+```sh
+docker compose exec backend python -c 'from app.worker import update_dependencies; update_dependencies.send(["org.gnome.Calculator", "org.gnome.TextEditor"])'
+```
+
+Pilot calls only update the specified catalog apps. They do not withdraw other
+apps. `DEPENDENCY_INDEX_ENABLED=true` enables full collection at 04:30 in the
+existing scheduler's timezone; it can also be queued with
+`update_dependencies.send()`. The setting defaults to false. The worker needs
+the same OSTree bindings and repository access already used by moderation.
+The API never queues ingestion in response to a public search.
+
+Collection only pulls the embedded manifest at an enumerated immutable commit.
+Changed commits/parser versions are queued separately; missing/failed attempts
+are retried by subsequent enumerations. Failed fetches keep previous snapshots
+without renewing their collection timestamp. Jobs finishing after a newer ref
+observation cannot replace its evidence. A failed enumeration never withdraws
+refs. Refs not observed for two days are marked stale even if their last fetch
+succeeded. Coverage counts describe observed catalog refs, not all possible
+Flathub artifacts, and stale counts overlap other statuses.
+
+API endpoints:
+
+- `GET /dependencies?q=openssl&match=module&limit=25`
+- `GET /dependencies?q=<full-source-url>&match=source`
+- `GET /dependencies/snapshots/<id>`
+
+`next_cursor` is bound to the query and uses a declaration-ID high-water mark.
+New declarations do not enter later pages; withdrawn/replaced snapshots may
+disappear during pagination. Start a new search to include new publications.
+`complete` means the supported declaration structure was parsed, not that shipped
+contents are known. Branch names stay branches; no filename-to-version guesses
+or cross-ecosystem identity merging are performed. Source kinds such as patches
+and extra-data stay explicitly typed. Name queries can match both a module row
+and its individual source rows.
+
+Before full rollout, measure pilot duration, missing/partial/error counts, table
+sizes (`pg_total_relation_size` for the three `dependency*` tables), and query
+plans (`EXPLAIN ANALYZE`). The name-prefix and SHA-256 exact-URL indexes avoid
+adding a search service. Raw URLs are retained and equality checked after hashing.
+Full snapshot JSON is retained in PostgreSQL; evaluate retention and transfer cost
+against the actual catalog before increasing scope to other architectures.
+
+PostgreSQL integration tests use isolated schemas in a disposable database:
+
+```sh
+DEPENDENCY_TEST_DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/postgres \
+  uv run pytest tests/test_dependency_manifest.py tests/test_dependency_index.py tests/test_ostree_manifest.py
+```
+
+The CI PostgreSQL service runs these tests, including migration upgrade/downgrade,
+atomic writes, failed refreshes, withdrawal, immutable reads across ref changes,
+exact source matching, and pagination. Regenerate API bindings with the existing
+`pnpm openapi-codegen` command after API schema changes.
+
 ## Stripe
 
 If you want to use the parts of the backend which use Stripe, e.g. for testing vending

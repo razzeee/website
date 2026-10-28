@@ -88,6 +88,21 @@ def collect(candidate, published, refs, *, skip_missing_candidate_app_ids=frozen
     )
 
 
+def test_dependency_reader_uses_enumerated_commit_after_ref_moves(source_repos):
+    _, published = source_repos
+    ref = "app/org.example.App/x86_64/stable"
+    old = published.commit(ref, {"modules": [{"name": "old"}]})
+    assert (
+        ostree_manifest.list_published_refs(published.url, timeout_seconds=10)[ref]
+        == old
+    )
+    published.commit(ref, {"modules": [{"name": "new"}]})
+    manifest = ostree_manifest.read_published_manifest(
+        published.url, ref, old, timeout_seconds=10
+    )
+    assert manifest == {"modules": [{"name": "old"}]}
+
+
 def test_manifest_collection_with_ostree_header_gate(source_repos):
     candidate, published = source_repos
     ref_name = "app/org.example.App/x86_64/stable"

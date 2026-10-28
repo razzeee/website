@@ -94,6 +94,12 @@ const Footer = () => {
             >
               {t("developer-portal.title")}
             </Link>
+            <Link
+              href="/dependencies"
+              className="flex h-12 items-center justify-center text-center text-xl text-inherit hover:underline sm:block sm:h-auto sm:text-start sm:text-sm"
+            >
+              {t("dependency-index.title")}
+            </Link>
             <a
               className="flex h-12 items-center justify-center text-center text-xl text-inherit hover:underline sm:block sm:h-auto sm:text-start sm:text-sm"
               href="https://docs.flathub.org/docs/for-app-authors/submission"

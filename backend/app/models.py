@@ -2407,6 +2407,83 @@ class ModerationOriginAllowlist(Base):
     )
 
 
+class DependencyManifestSnapshot(Base):
+    __tablename__ = "dependencymanifestsnapshot"
+
+    id = mapped_column(Integer, primary_key=True)
+    repository = mapped_column(String, nullable=False)
+    ref = mapped_column(String, nullable=False)
+    commit = mapped_column(String, nullable=False)
+    parser_version = mapped_column(Integer, nullable=False)
+    created_at = mapped_column(DateTime, nullable=False)
+    digest = mapped_column(String, nullable=False)
+    manifest = mapped_column(JSONB, nullable=False)
+    diagnostics = mapped_column(JSONB, nullable=False)
+
+    __table_args__ = (
+        Index(
+            "dependency_snapshot_identity",
+            repository,
+            ref,
+            commit,
+            parser_version,
+            unique=True,
+        ),
+    )
+
+
+class DependencyRefState(Base):
+    __tablename__ = "dependencyrefstate"
+
+    id = mapped_column(Integer, primary_key=True)
+    repository = mapped_column(String, nullable=False)
+    ref = mapped_column(String, nullable=False)
+    app_id = mapped_column(String, nullable=False)
+    observed_commit = mapped_column(String, nullable=False)
+    observed_at = mapped_column(DateTime, nullable=False)
+    active = mapped_column(Boolean, nullable=False, default=True)
+    snapshot_id = mapped_column(Integer, ForeignKey(DependencyManifestSnapshot.id))
+    last_attempt_at = mapped_column(DateTime)
+    last_success_at = mapped_column(DateTime)
+    status = mapped_column(String, nullable=False)
+    error = mapped_column(String)
+
+    __table_args__ = (
+        Index("dependency_ref_identity", repository, ref, unique=True),
+        CheckConstraint(
+            "status IN ('pending', 'complete', 'partial', 'missing', 'error')",
+            name="dependency_ref_status",
+        ),
+    )
+
+
+class DependencyDeclaration(Base):
+    __tablename__ = "dependencydeclaration"
+
+    id = mapped_column(Integer, primary_key=True)
+    snapshot_id = mapped_column(
+        Integer, ForeignKey(DependencyManifestSnapshot.id), nullable=False, index=True
+    )
+    pointer = mapped_column(String, nullable=False)
+    module_path = mapped_column(String, nullable=False)
+    name = mapped_column(String, nullable=False)
+    name_key = mapped_column(String, nullable=False)
+    kind = mapped_column(String, nullable=False)
+    source_url = mapped_column(String)
+    source_key = mapped_column(String)
+    evidence = mapped_column(JSONB, nullable=False)
+
+    __table_args__ = (
+        Index(
+            "dependency_module_prefix",
+            name_key,
+            postgresql_ops={"name_key": "text_pattern_ops"},
+        ),
+        Index("dependency_source_key", source_key),
+        Index("dependency_declaration_pointer", snapshot_id, pointer, unique=True),
+    )
+
+
 class ManifestAnalysisObservation(Base):
     __tablename__ = "manifestanalysisobservation"
 

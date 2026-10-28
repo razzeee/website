@@ -1,0 +1,170 @@
+.page,
+.manifestPage {
+  --primary: var(--flathub-celestial-blue-dark);
+  --muted-foreground: var(--flathub-granite-gray);
+}
+
+:global(.dark) .page,
+:global(.dark) .manifestPage {
+  --primary: var(--flathub-celestial-blue-light);
+  --primary-foreground: var(--flathub-black);
+  --muted-foreground: var(--flathub-gainsborow);
+}
+
+.page [data-slot="card"],
+.manifestPage [data-slot="card"] {
+  background: oklch(var(--card));
+  border: 1px solid oklch(var(--border));
+}
+
+.page input {
+  background: oklch(var(--card));
+  color: oklch(var(--foreground));
+}
+
+.page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 32px 72px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 270px;
+  column-gap: 40px;
+  row-gap: 24px;
+}
+
+.page p,
+.manifestPage p {
+  margin-block: 0;
+}
+
+.hero {
+  grid-column: 1 / -1;
+  padding-bottom: 24px;
+}
+
+.title {
+  font-size: clamp(30px, 4vw, 40px);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+  margin: 16px 0;
+  text-wrap: balance;
+}
+
+.modes {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.notice {
+  grid-column: 1 / -1;
+  font-size: 14px;
+}
+.notice summary {
+  cursor: pointer;
+  font-weight: 500;
+}
+.notice p {
+  padding-top: 12px;
+  color: oklch(var(--muted-foreground));
+}
+
+.coverage {
+  grid-column: 2;
+  grid-row: 5;
+  align-self: start;
+}
+.metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.metrics > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+.coverageNote {
+  font-size: 12px;
+  color: oklch(var(--muted-foreground));
+}
+.results {
+  grid-column: 1;
+  grid-row: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.resultsTitle {
+  font-size: 18px;
+  font-weight: 600;
+}
+.appLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.appLink svg {
+  flex-shrink: 0;
+}
+.appLink:hover {
+  text-decoration: underline;
+}
+.moduleName {
+  font-size: 20px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.evidence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  font-size: 12px;
+}
+.manifestPage {
+  max-width: 1200px;
+  margin: auto;
+  padding: 40px 32px 72px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.manifestHeader .title {
+  margin-top: 0;
+}
+.manifestHeader p {
+  max-width: 760px;
+  color: oklch(var(--muted-foreground));
+}
+.metadata {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  font-size: 14px;
+}
+.metadata dt {
+  margin-bottom: 8px;
+}
+
+@media (max-width: 760px) {
+  .page {
+    padding: 28px 16px 48px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .coverage {
+    grid-column: 1;
+    grid-row: 6;
+  }
+  .manifestPage {
+    padding: 28px 16px 48px;
+  }
+  .metadata {
+    grid-template-columns: 1fr;
+  }
+}

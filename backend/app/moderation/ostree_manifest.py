@@ -3,6 +3,7 @@ import logging
 import tempfile
 from collections.abc import Sequence
 from collections.abc import Set as AbstractSet
+from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import StrEnum
 from threading import Timer
@@ -348,6 +349,64 @@ def _read_manifest(
     if not is_json_object(manifest):
         raise _ManifestDataError("unexpected_json_type", commit)
     return manifest
+
+
+@contextmanager
+def published_manifest_repository(repository_url: str, timeout_seconds: float):
+    """A bounded reader using the same selective transport as moderation."""
+    with tempfile.TemporaryDirectory(prefix="ostree-manifest-") as temp_dir:
+        cancellable = Gio.Cancellable()
+        timer = Timer(timeout_seconds, cancellable.cancel)
+        timer.daemon = True
+        timer.start()
+        try:
+            repo = OSTree.Repo.new(Gio.File.new_for_path(temp_dir))
+            repo.create(OSTree.RepoMode.BARE_USER_ONLY, cancellable)
+            repo.remote_add(
+                "published",
+                repository_url,
+                GLib.Variant(
+                    "a{sv}",
+                    {
+                        "gpg-verify": GLib.Variant("b", False),
+                        "gpg-verify-summary": GLib.Variant("b", False),
+                    },
+                ),
+            )
+            yield repo, cancellable
+        except GLib.Error as exc:
+            if cancellable.is_cancelled():
+                raise ManifestTimeoutError("timeout") from exc
+            raise ManifestTransportError("ostree_io") from exc
+        finally:
+            timer.cancel()
+
+
+def list_published_refs(
+    repository_url: str, *, timeout_seconds: float
+) -> dict[str, str]:
+    with published_manifest_repository(repository_url, timeout_seconds) as (
+        repo,
+        cancel,
+    ):
+        return _list_remote_refs(repo, "published", cancel)
+
+
+def read_published_manifest(
+    repository_url: str, ref_name: str, commit: str, *, timeout_seconds: float
+) -> dict[str, JSONValue] | None:
+    """Read the enumerated commit even if the remote ref has since advanced."""
+    if not summary.validate_ref(ref_name) or not OSTree.validate_checksum_string(
+        commit
+    ):
+        raise InvalidBuildRefError("invalid published ref or checksum")
+    with published_manifest_repository(repository_url, timeout_seconds) as (
+        repo,
+        cancel,
+    ):
+        _pull_manifest_paths(repo, "published", [ref_name], [commit], cancel)
+        _assert_local_refs_match(repo, "published", [(ref_name, commit)])
+        return _read_manifest(repo, commit, cancel)
 
 
 def collect_manifest_pairs(

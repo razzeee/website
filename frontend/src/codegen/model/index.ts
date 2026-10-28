@@ -6,6 +6,17 @@
  */
 
 export * from "./_buildCheck"
+export * from "./dependencyCoverage"
+export * from "./dependencyCoverageLastObservedAt"
+export * from "./dependencyMatch"
+export * from "./dependencyMatchEvidence"
+export * from "./dependencyMatchSourceUrl"
+export * from "./dependencySearch"
+export * from "./dependencySearchNextCursor"
+export * from "./dependencySnapshot"
+export * from "./dependencySnapshotManifest"
+export * from "./searchDependenciesDependenciesGetMatch"
+export * from "./searchDependenciesDependenciesGetParams"
 export * from "./_buildCheckStatusReason"
 export * from "./_permissionDifference"
 export * from "./_permissionDifferenceAfter"

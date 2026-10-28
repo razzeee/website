@@ -31,6 +31,7 @@ from .routes import (
     app_picks,
     apps,
     collection,
+    dependencies,
     exceptions,
     favorites,
     feed,
@@ -105,6 +106,7 @@ invites.register_to_app(router)
 
 app_picks.register_to_app(router)
 maintenance.register_to_app(router)
+dependencies.register_to_app(router)
 collection.register_to_app(router)
 feed.register_to_app(router)
 quality_moderation.register_to_app(router)

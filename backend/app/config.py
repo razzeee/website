@@ -99,6 +99,7 @@ class Settings(BaseSettings):
     # be published.
     moderation_observe_only: bool = False
     ostree_manifest_timeout_seconds: float = Field(default=60.0, gt=0)
+    dependency_index_enabled: bool = False
     decisions_api: str | None = None
     decisions_api_key: str | None = None
     decisions_model: str = "jev-1.13.0"
