@@ -51,6 +51,9 @@ services:
       DECISIONS_MODEL: ${DECISIONS_MODEL:-jev-1.13.0}
       PERMISSION_DECISION_WEBHOOK_URL: ${PERMISSION_DECISION_WEBHOOK_URL:-}
       PERMISSION_ASSESSMENT_SHARED_SECRET: ${PERMISSION_ASSESSMENT_SHARED_SECRET:-}
+      QUALITY_ANALYSIS_ENABLED: ${QUALITY_ANALYSIS_ENABLED:-false}
+      QUALITY_ANALYSIS_BUNDLE: ${QUALITY_ANALYSIS_BUNDLE:-}
+      QUALITY_ANALYSIS_ENCODER_REVISION: ${QUALITY_ANALYSIS_ENCODER_REVISION:-}
     ports:
       - "8000:8000"
     depends_on:
@@ -88,7 +91,7 @@ services:
       dockerfile: Dockerfile
       context: .
     restart: unless-stopped
-    command: dramatiq app.worker --processes 1 --threads 2 --watch app --watch-use-polling -x '*.pyc' -x '*/__pycache__/*'
+    command: dramatiq app.worker --queues default slow --processes 1 --threads 2 --watch app --watch-use-polling -x '*.pyc' -x '*/__pycache__/*'
     environment:
       <<: *backend-env
     depends_on:
@@ -102,6 +105,22 @@ services:
     # The workers need access to flat-manager, which is a separate repository and usually runs on the host.
     extra_hosts:
       host.docker.internal: host-gateway
+
+  quality-analysis-worker:
+    profiles: [appraise]
+    build:
+      context: .
+      dockerfile: Dockerfile.appraise
+      args:
+        MODEL_BUNDLE_SHA256: ${QUALITY_ANALYSIS_BUNDLE:-}
+        ENCODER_REVISION: ${QUALITY_ANALYSIS_ENCODER_REVISION:-}
+    environment: *backend-env
+    mem_limit: 4g
+    cpus: 2
+    restart: unless-stopped
+    depends_on:
+      - db
+      - redis-state
 
   scheduler:
     image: backend_backend:latest

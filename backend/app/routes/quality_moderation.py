@@ -2,10 +2,10 @@ import datetime
 from dataclasses import dataclass
 from typing import Literal, cast, overload
 
-from fastapi import APIRouter, FastAPI, HTTPException, Path
+from fastapi import APIRouter, FastAPI, HTTPException, Path, Response
 from pydantic import BaseModel, Field
 
-from .. import cache
+from .. import cache, quality_analysis
 from ..database import get_db, get_json_key
 from ..login_info import QualityModeratorDep, QualityModeratorOrAppAuthorDep
 from ..models import (
@@ -18,8 +18,37 @@ from ..models import (
     QualityModerationStatus,
     SimpleQualityModerationResponse,
 )
+from ..quality_analysis import QualityAnalysisResponse
 
 router = APIRouter(prefix="/quality-moderation")
+
+
+@router.post("/{app_id}/analysis", status_code=202, tags=["quality-moderation"])
+@cache.no_store
+def request_quality_analysis(
+    app_id: str, moderator: QualityModeratorDep
+) -> QualityAnalysisResponse:
+    return quality_analysis.request_analysis(app_id, moderator.user.id)
+
+
+@router.get("/{app_id}/analysis", tags=["quality-moderation"])
+@cache.no_store
+def get_quality_analysis(
+    app_id: str, _moderator: QualityModeratorDep
+) -> QualityAnalysisResponse:
+    return quality_analysis.read_analysis(app_id)
+
+
+@router.get("/{app_id}/analysis/{analysis_id}/icon", tags=["quality-moderation"])
+@cache.no_store
+def get_quality_analysis_icon(
+    app_id: str, analysis_id: str, _moderator: QualityModeratorDep
+) -> Response:
+    return Response(
+        quality_analysis.read_icon(app_id, analysis_id),
+        media_type="image/png",
+        headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
+    )
 
 
 @dataclass

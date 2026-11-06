@@ -32,6 +32,8 @@ import type {
   GetPassingQualityAppsQualityModerationPassingAppsGetParams,
   GetQualityModerationStatusQualityModerationStatusGetParams,
   GuidelineStatsByCategory,
+  HTTPValidationError,
+  QualityAnalysisResponse,
   QualityModerationDashboardResponse,
   QualityModerationModeratorResponse,
   QualityModerationResponse,
@@ -57,6 +59,653 @@ const withQueryKey = <T extends object, K>(
     })
   }
   return result
+}
+
+/**
+ * @summary Request Quality Analysis
+ */
+export const requestQualityAnalysisQualityModerationAppIdAnalysisPost = (
+  appId: string,
+  options?: AxiosRequestConfig,
+): Promise<AxiosResponse<QualityAnalysisResponse>> => {
+  return axios.post(`/quality-moderation/${appId}/analysis`, undefined, options)
+}
+
+export const getRequestQualityAnalysisQualityModerationAppIdAnalysisPostUrl = (
+  appId: string,
+) => {
+  return axios
+    .create({
+      baseURL: "",
+      params: null,
+    })
+    .getUri({
+      url: `/quality-moderation/${appId}/analysis`,
+      baseURL: "",
+
+      paramsSerializer: (params) =>
+        qs.stringify(params, { arrayFormat: "repeat" }),
+    })
+}
+
+export const getRequestQualityAnalysisQualityModerationAppIdAnalysisPostMutationKey =
+  () => ["requestQualityAnalysisQualityModerationAppIdAnalysisPost"] as const
+
+export const getRequestQualityAnalysisQualityModerationAppIdAnalysisPostMutationOptions =
+  <TError = AxiosError<HTTPValidationError>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<
+      Awaited<
+        ReturnType<
+          typeof requestQualityAnalysisQualityModerationAppIdAnalysisPost
+        >
+      >,
+      TError,
+      RequestQualityAnalysisQualityModerationAppIdAnalysisPostMutationVariables,
+      TContext
+    >
+    axios?: AxiosRequestConfig
+  }): UseMutationOptions<
+    Awaited<
+      ReturnType<
+        typeof requestQualityAnalysisQualityModerationAppIdAnalysisPost
+      >
+    >,
+    TError,
+    RequestQualityAnalysisQualityModerationAppIdAnalysisPostMutationVariables,
+    TContext
+  > => {
+    const mutationKey =
+      getRequestQualityAnalysisQualityModerationAppIdAnalysisPostMutationKey()
+    const { mutation: mutationOptions, axios: axiosOptions } = options
+      ? options.mutation &&
+        "mutationKey" in options.mutation &&
+        options.mutation.mutationKey
+        ? options
+        : { ...options, mutation: { ...options.mutation, mutationKey } }
+      : { mutation: { mutationKey }, axios: undefined }
+
+    const mutationFn: MutationFunction<
+      Awaited<
+        ReturnType<
+          typeof requestQualityAnalysisQualityModerationAppIdAnalysisPost
+        >
+      >,
+      RequestQualityAnalysisQualityModerationAppIdAnalysisPostMutationVariables
+    > = (props) => {
+      const { appId } = props ?? {}
+
+      return requestQualityAnalysisQualityModerationAppIdAnalysisPost(
+        appId,
+        axiosOptions,
+      )
+    }
+
+    return { mutationFn, ...mutationOptions }
+  }
+
+export type RequestQualityAnalysisQualityModerationAppIdAnalysisPostMutationResult =
+  NonNullable<
+    Awaited<
+      ReturnType<
+        typeof requestQualityAnalysisQualityModerationAppIdAnalysisPost
+      >
+    >
+  >
+
+export type RequestQualityAnalysisQualityModerationAppIdAnalysisPostMutationError =
+  AxiosError<HTTPValidationError>
+export type RequestQualityAnalysisQualityModerationAppIdAnalysisPostMutationVariables =
+  { appId: string }
+
+/**
+ * @summary Request Quality Analysis
+ */
+export const useRequestQualityAnalysisQualityModerationAppIdAnalysisPost = <
+  TError = AxiosError<HTTPValidationError>,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<
+        ReturnType<
+          typeof requestQualityAnalysisQualityModerationAppIdAnalysisPost
+        >
+      >,
+      TError,
+      RequestQualityAnalysisQualityModerationAppIdAnalysisPostMutationVariables,
+      TContext
+    >
+    axios?: AxiosRequestConfig
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<
+    ReturnType<typeof requestQualityAnalysisQualityModerationAppIdAnalysisPost>
+  >,
+  TError,
+  RequestQualityAnalysisQualityModerationAppIdAnalysisPostMutationVariables,
+  TContext
+> => {
+  return useMutation(
+    getRequestQualityAnalysisQualityModerationAppIdAnalysisPostMutationOptions(
+      options,
+    ),
+    queryClient,
+  )
+}
+/**
+ * @summary Get Quality Analysis
+ */
+export const getQualityAnalysisQualityModerationAppIdAnalysisGet = (
+  appId: string,
+  options?: AxiosRequestConfig,
+): Promise<AxiosResponse<QualityAnalysisResponse>> => {
+  return axios.get(`/quality-moderation/${appId}/analysis`, options)
+}
+
+export const getGetQualityAnalysisQualityModerationAppIdAnalysisGetUrl = (
+  appId: string,
+) => {
+  return axios
+    .create({
+      baseURL: "",
+      params: null,
+    })
+    .getUri({
+      url: `/quality-moderation/${appId}/analysis`,
+      baseURL: "",
+
+      paramsSerializer: (params) =>
+        qs.stringify(params, { arrayFormat: "repeat" }),
+    })
+}
+
+export const getGetQualityAnalysisQualityModerationAppIdAnalysisGetQueryKey = (
+  appId: string,
+) => {
+  return [`/quality-moderation/${appId}/analysis`] as const
+}
+
+export const getGetQualityAnalysisQualityModerationAppIdAnalysisGetQueryOptions =
+  <
+    TData = Awaited<
+      ReturnType<typeof getQualityAnalysisQualityModerationAppIdAnalysisGet>
+    >,
+    TError = AxiosError<HTTPValidationError>,
+  >(
+    appId: string,
+    options?: {
+      query?: Partial<
+        UseQueryOptions<
+          Awaited<
+            ReturnType<
+              typeof getQualityAnalysisQualityModerationAppIdAnalysisGet
+            >
+          >,
+          TError,
+          TData
+        >
+      >
+      axios?: AxiosRequestConfig
+    },
+  ) => {
+    const { query: queryOptions, axios: axiosOptions } = options ?? {}
+
+    const queryKey =
+      queryOptions?.queryKey ??
+      getGetQualityAnalysisQualityModerationAppIdAnalysisGetQueryKey(appId)
+
+    const queryFn: QueryFunction<
+      Awaited<
+        ReturnType<typeof getQualityAnalysisQualityModerationAppIdAnalysisGet>
+      >
+    > = ({ signal }) =>
+      getQualityAnalysisQualityModerationAppIdAnalysisGet(appId, {
+        signal,
+        ...axiosOptions,
+      })
+
+    return {
+      queryKey,
+      queryFn,
+      enabled: appId !== null && appId !== undefined,
+      ...queryOptions,
+    } as UseQueryOptions<
+      Awaited<
+        ReturnType<typeof getQualityAnalysisQualityModerationAppIdAnalysisGet>
+      >,
+      TError,
+      TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> }
+  }
+
+export type GetQualityAnalysisQualityModerationAppIdAnalysisGetQueryResult =
+  NonNullable<
+    Awaited<
+      ReturnType<typeof getQualityAnalysisQualityModerationAppIdAnalysisGet>
+    >
+  >
+export type GetQualityAnalysisQualityModerationAppIdAnalysisGetQueryError =
+  AxiosError<HTTPValidationError>
+
+export function useGetQualityAnalysisQualityModerationAppIdAnalysisGet<
+  TData = Awaited<
+    ReturnType<typeof getQualityAnalysisQualityModerationAppIdAnalysisGet>
+  >,
+  TError = AxiosError<HTTPValidationError>,
+>(
+  appId: string,
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<
+          ReturnType<typeof getQualityAnalysisQualityModerationAppIdAnalysisGet>
+        >,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<
+            ReturnType<
+              typeof getQualityAnalysisQualityModerationAppIdAnalysisGet
+            >
+          >,
+          TError,
+          Awaited<
+            ReturnType<
+              typeof getQualityAnalysisQualityModerationAppIdAnalysisGet
+            >
+          >
+        >,
+        "initialData"
+      >
+    axios?: AxiosRequestConfig
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>
+}
+export function useGetQualityAnalysisQualityModerationAppIdAnalysisGet<
+  TData = Awaited<
+    ReturnType<typeof getQualityAnalysisQualityModerationAppIdAnalysisGet>
+  >,
+  TError = AxiosError<HTTPValidationError>,
+>(
+  appId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<
+          ReturnType<typeof getQualityAnalysisQualityModerationAppIdAnalysisGet>
+        >,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<
+            ReturnType<
+              typeof getQualityAnalysisQualityModerationAppIdAnalysisGet
+            >
+          >,
+          TError,
+          Awaited<
+            ReturnType<
+              typeof getQualityAnalysisQualityModerationAppIdAnalysisGet
+            >
+          >
+        >,
+        "initialData"
+      >
+    axios?: AxiosRequestConfig
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>
+}
+export function useGetQualityAnalysisQualityModerationAppIdAnalysisGet<
+  TData = Awaited<
+    ReturnType<typeof getQualityAnalysisQualityModerationAppIdAnalysisGet>
+  >,
+  TError = AxiosError<HTTPValidationError>,
+>(
+  appId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<
+          ReturnType<typeof getQualityAnalysisQualityModerationAppIdAnalysisGet>
+        >,
+        TError,
+        TData
+      >
+    >
+    axios?: AxiosRequestConfig
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>
+}
+/**
+ * @summary Get Quality Analysis
+ */
+
+export function useGetQualityAnalysisQualityModerationAppIdAnalysisGet<
+  TData = Awaited<
+    ReturnType<typeof getQualityAnalysisQualityModerationAppIdAnalysisGet>
+  >,
+  TError = AxiosError<HTTPValidationError>,
+>(
+  appId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<
+          ReturnType<typeof getQualityAnalysisQualityModerationAppIdAnalysisGet>
+        >,
+        TError,
+        TData
+      >
+    >
+    axios?: AxiosRequestConfig
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>
+} {
+  const queryOptions =
+    getGetQualityAnalysisQualityModerationAppIdAnalysisGetQueryOptions(
+      appId,
+      options,
+    )
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> }
+
+  return withQueryKey(query, queryOptions.queryKey)
+}
+
+/**
+ * @summary Get Quality Analysis Icon
+ */
+export const getQualityAnalysisIconQualityModerationAppIdAnalysisAnalysisIdIconGet =
+  (
+    appId: string,
+    analysisId: string,
+    options?: AxiosRequestConfig,
+  ): Promise<AxiosResponse<unknown>> => {
+    return axios.get(
+      `/quality-moderation/${appId}/analysis/${analysisId}/icon`,
+      options,
+    )
+  }
+
+export const getGetQualityAnalysisIconQualityModerationAppIdAnalysisAnalysisIdIconGetUrl =
+  (appId: string, analysisId: string) => {
+    return axios
+      .create({
+        baseURL: "",
+        params: null,
+      })
+      .getUri({
+        url: `/quality-moderation/${appId}/analysis/${analysisId}/icon`,
+        baseURL: "",
+
+        paramsSerializer: (params) =>
+          qs.stringify(params, { arrayFormat: "repeat" }),
+      })
+  }
+
+export const getGetQualityAnalysisIconQualityModerationAppIdAnalysisAnalysisIdIconGetQueryKey =
+  (appId: string, analysisId: string) => {
+    return [`/quality-moderation/${appId}/analysis/${analysisId}/icon`] as const
+  }
+
+export const getGetQualityAnalysisIconQualityModerationAppIdAnalysisAnalysisIdIconGetQueryOptions =
+  <
+    TData = Awaited<
+      ReturnType<
+        typeof getQualityAnalysisIconQualityModerationAppIdAnalysisAnalysisIdIconGet
+      >
+    >,
+    TError = AxiosError<HTTPValidationError>,
+  >(
+    appId: string,
+    analysisId: string,
+    options?: {
+      query?: Partial<
+        UseQueryOptions<
+          Awaited<
+            ReturnType<
+              typeof getQualityAnalysisIconQualityModerationAppIdAnalysisAnalysisIdIconGet
+            >
+          >,
+          TError,
+          TData
+        >
+      >
+      axios?: AxiosRequestConfig
+    },
+  ) => {
+    const { query: queryOptions, axios: axiosOptions } = options ?? {}
+
+    const queryKey =
+      queryOptions?.queryKey ??
+      getGetQualityAnalysisIconQualityModerationAppIdAnalysisAnalysisIdIconGetQueryKey(
+        appId,
+        analysisId,
+      )
+
+    const queryFn: QueryFunction<
+      Awaited<
+        ReturnType<
+          typeof getQualityAnalysisIconQualityModerationAppIdAnalysisAnalysisIdIconGet
+        >
+      >
+    > = ({ signal }) =>
+      getQualityAnalysisIconQualityModerationAppIdAnalysisAnalysisIdIconGet(
+        appId,
+        analysisId,
+        { signal, ...axiosOptions },
+      )
+
+    return {
+      queryKey,
+      queryFn,
+      enabled:
+        appId !== null &&
+        appId !== undefined &&
+        analysisId !== null &&
+        analysisId !== undefined,
+      ...queryOptions,
+    } as UseQueryOptions<
+      Awaited<
+        ReturnType<
+          typeof getQualityAnalysisIconQualityModerationAppIdAnalysisAnalysisIdIconGet
+        >
+      >,
+      TError,
+      TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> }
+  }
+
+export type GetQualityAnalysisIconQualityModerationAppIdAnalysisAnalysisIdIconGetQueryResult =
+  NonNullable<
+    Awaited<
+      ReturnType<
+        typeof getQualityAnalysisIconQualityModerationAppIdAnalysisAnalysisIdIconGet
+      >
+    >
+  >
+export type GetQualityAnalysisIconQualityModerationAppIdAnalysisAnalysisIdIconGetQueryError =
+  AxiosError<HTTPValidationError>
+
+export function useGetQualityAnalysisIconQualityModerationAppIdAnalysisAnalysisIdIconGet<
+  TData = Awaited<
+    ReturnType<
+      typeof getQualityAnalysisIconQualityModerationAppIdAnalysisAnalysisIdIconGet
+    >
+  >,
+  TError = AxiosError<HTTPValidationError>,
+>(
+  appId: string,
+  analysisId: string,
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<
+          ReturnType<
+            typeof getQualityAnalysisIconQualityModerationAppIdAnalysisAnalysisIdIconGet
+          >
+        >,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<
+            ReturnType<
+              typeof getQualityAnalysisIconQualityModerationAppIdAnalysisAnalysisIdIconGet
+            >
+          >,
+          TError,
+          Awaited<
+            ReturnType<
+              typeof getQualityAnalysisIconQualityModerationAppIdAnalysisAnalysisIdIconGet
+            >
+          >
+        >,
+        "initialData"
+      >
+    axios?: AxiosRequestConfig
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>
+}
+export function useGetQualityAnalysisIconQualityModerationAppIdAnalysisAnalysisIdIconGet<
+  TData = Awaited<
+    ReturnType<
+      typeof getQualityAnalysisIconQualityModerationAppIdAnalysisAnalysisIdIconGet
+    >
+  >,
+  TError = AxiosError<HTTPValidationError>,
+>(
+  appId: string,
+  analysisId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<
+          ReturnType<
+            typeof getQualityAnalysisIconQualityModerationAppIdAnalysisAnalysisIdIconGet
+          >
+        >,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<
+            ReturnType<
+              typeof getQualityAnalysisIconQualityModerationAppIdAnalysisAnalysisIdIconGet
+            >
+          >,
+          TError,
+          Awaited<
+            ReturnType<
+              typeof getQualityAnalysisIconQualityModerationAppIdAnalysisAnalysisIdIconGet
+            >
+          >
+        >,
+        "initialData"
+      >
+    axios?: AxiosRequestConfig
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>
+}
+export function useGetQualityAnalysisIconQualityModerationAppIdAnalysisAnalysisIdIconGet<
+  TData = Awaited<
+    ReturnType<
+      typeof getQualityAnalysisIconQualityModerationAppIdAnalysisAnalysisIdIconGet
+    >
+  >,
+  TError = AxiosError<HTTPValidationError>,
+>(
+  appId: string,
+  analysisId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<
+          ReturnType<
+            typeof getQualityAnalysisIconQualityModerationAppIdAnalysisAnalysisIdIconGet
+          >
+        >,
+        TError,
+        TData
+      >
+    >
+    axios?: AxiosRequestConfig
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>
+}
+/**
+ * @summary Get Quality Analysis Icon
+ */
+
+export function useGetQualityAnalysisIconQualityModerationAppIdAnalysisAnalysisIdIconGet<
+  TData = Awaited<
+    ReturnType<
+      typeof getQualityAnalysisIconQualityModerationAppIdAnalysisAnalysisIdIconGet
+    >
+  >,
+  TError = AxiosError<HTTPValidationError>,
+>(
+  appId: string,
+  analysisId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<
+          ReturnType<
+            typeof getQualityAnalysisIconQualityModerationAppIdAnalysisAnalysisIdIconGet
+          >
+        >,
+        TError,
+        TData
+      >
+    >
+    axios?: AxiosRequestConfig
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>
+} {
+  const queryOptions =
+    getGetQualityAnalysisIconQualityModerationAppIdAnalysisAnalysisIdIconGetQueryOptions(
+      appId,
+      analysisId,
+      options,
+    )
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> }
+
+  return withQueryKey(query, queryOptions.queryKey)
 }
 
 /**

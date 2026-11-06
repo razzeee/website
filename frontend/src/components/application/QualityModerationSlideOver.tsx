@@ -51,6 +51,7 @@ import {
 } from "@/components/ui/tooltip"
 import { Link } from "src/i18n/navigation"
 import { ExternalLinkIcon } from "lucide-react"
+import { QualityAnalysisPanel } from "./QualityAnalysisPanel"
 
 const ShowIconButton = ({ app }: { app: Pick<DesktopAppstream, "icon"> }) => {
   const t = useTranslations()
@@ -799,7 +800,12 @@ export const QualityModerationSlideOver = ({
             <span className="text-flathub-red">{t("server-error")}</span>
           </div>
         ) : (
-          <QualityCategories app={app} query={query} mode={mode} />
+          <>
+            {mode === "qualityModerator" && isQualityModalOpen && (
+              <QualityAnalysisPanel key={app.id} appId={app.id} />
+            )}
+            <QualityCategories app={app} query={query} mode={mode} />
+          </>
         )}
       </div>
     </SlideOver>

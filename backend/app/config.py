@@ -133,5 +133,28 @@ class Settings(BaseSettings):
     force_recompute_stats: bool = False
     audit_log_retention_days: int = 90
 
+    quality_analysis_enabled: bool = False
+    quality_analysis_bundle: str = ""
+    quality_analysis_encoder_revision: str = ""
+    quality_analysis_cli: str = "/opt/appraise/.venv/bin/appraise"
+    quality_analysis_manifest: str = "/opt/appraise/deployment.json"
+    quality_analysis_listing_model: str = "/opt/appraise/artifacts/listing/model.joblib"
+    quality_analysis_icon_model: str = (
+        "/opt/appraise/artifacts/calibrated-clip/model.joblib"
+    )
+    quality_analysis_timeout: int = Field(default=180, ge=1, le=600)
+    quality_analysis_queue_limit: int = Field(default=100, ge=1)
+
+    @model_validator(mode="after")
+    def validate_quality_analysis_config(self):
+        if self.quality_analysis_enabled and (
+            not self.quality_analysis_bundle.strip()
+            or not self.quality_analysis_encoder_revision.strip()
+        ):
+            raise ValueError(
+                "Quality analysis requires bundle digest and encoder revision"
+            )
+        return self
+
 
 settings = Settings()
