@@ -68,6 +68,9 @@ const response: QualityModerationModeratorResponse = {
 const mockResponse = (data: QualityModerationModeratorResponse) => ({
   msw: {
     handlers: [
+      http.get(`*/quality-moderation/${appId}/analysis`, () =>
+        HttpResponse.json({ state: "disabled" }),
+      ),
       http.get(`*/quality-moderation/${appId}/moderator`, () =>
         HttpResponse.json(data),
       ),

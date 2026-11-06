@@ -13,12 +13,169 @@ import type {
   AppPickRecommendationsResponse,
   FailedByGuideline,
   GuidelineStatsByCategory,
+  QualityAnalysisResponse,
   QualityModerationDashboardResponse,
   QualityModerationModeratorResponse,
   QualityModerationResponse,
   QualityModerationStatus,
   SimpleQualityModerationResponse,
 } from "../model"
+
+export const getRequestQualityAnalysisQualityModerationAppIdAnalysisPostResponseMock =
+  (
+    overrideResponse: Partial<Extract<QualityAnalysisResponse, object>> = {},
+  ): QualityAnalysisResponse => ({
+    state: faker.helpers.arrayElement([
+      "disabled",
+      "not_requested",
+      "queued",
+      "running",
+      "completed",
+      "failed",
+    ] as const),
+    id: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    created_at: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + "Z",
+      null,
+    ]),
+    captured_at: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + "Z",
+      null,
+    ]),
+    completed_at: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + "Z",
+      null,
+    ]),
+    icon_verified_at: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + "Z",
+      null,
+    ]),
+    has_icon: faker.datatype.boolean(),
+    stale: faker.datatype.boolean(),
+    stale_reasons: faker.helpers.arrayElement([
+      Array.from(
+        { length: faker.number.int({ min: 1, max: 10 }) },
+        (_, i) => i + 1,
+      ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+      undefined,
+    ]),
+    error_code: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    identity: faker.helpers.arrayElement([
+      {
+        [faker.string.alphanumeric(5)]: faker.string.alpha({
+          length: { min: 10, max: 20 },
+        }),
+      },
+      null,
+    ]),
+    snapshot: faker.helpers.arrayElement([null]),
+    criteria: faker.helpers.arrayElement([
+      {
+        [faker.string.alphanumeric(5)]: {
+          method: faker.helpers.arrayElement(["model", null]),
+          pass_score: faker.helpers.arrayElement([
+            faker.number.float({ min: 0, max: 1, fractionDigits: 2 }),
+            null,
+          ]),
+          calibrated: faker.helpers.arrayElement([
+            faker.datatype.boolean(),
+            null,
+          ]),
+          unavailable: faker.helpers.arrayElement([
+            faker.string.alpha({ length: { min: 10, max: 20 } }),
+            null,
+          ]),
+        },
+      },
+      undefined,
+    ]),
+    result: faker.helpers.arrayElement([null]),
+    ...overrideResponse,
+  })
+
+export const getGetQualityAnalysisQualityModerationAppIdAnalysisGetResponseMock =
+  (
+    overrideResponse: Partial<Extract<QualityAnalysisResponse, object>> = {},
+  ): QualityAnalysisResponse => ({
+    state: faker.helpers.arrayElement([
+      "disabled",
+      "not_requested",
+      "queued",
+      "running",
+      "completed",
+      "failed",
+    ] as const),
+    id: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    created_at: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + "Z",
+      null,
+    ]),
+    captured_at: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + "Z",
+      null,
+    ]),
+    completed_at: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + "Z",
+      null,
+    ]),
+    icon_verified_at: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + "Z",
+      null,
+    ]),
+    has_icon: faker.datatype.boolean(),
+    stale: faker.datatype.boolean(),
+    stale_reasons: faker.helpers.arrayElement([
+      Array.from(
+        { length: faker.number.int({ min: 1, max: 10 }) },
+        (_, i) => i + 1,
+      ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+      undefined,
+    ]),
+    error_code: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    identity: faker.helpers.arrayElement([
+      {
+        [faker.string.alphanumeric(5)]: faker.string.alpha({
+          length: { min: 10, max: 20 },
+        }),
+      },
+      null,
+    ]),
+    snapshot: faker.helpers.arrayElement([null]),
+    criteria: faker.helpers.arrayElement([
+      {
+        [faker.string.alphanumeric(5)]: {
+          method: faker.helpers.arrayElement(["model", null]),
+          pass_score: faker.helpers.arrayElement([
+            faker.number.float({ min: 0, max: 1, fractionDigits: 2 }),
+            null,
+          ]),
+          calibrated: faker.helpers.arrayElement([
+            faker.datatype.boolean(),
+            null,
+          ]),
+          unavailable: faker.helpers.arrayElement([
+            faker.string.alpha({ length: { min: 10, max: 20 } }),
+            null,
+          ]),
+        },
+      },
+      undefined,
+    ]),
+    result: faker.helpers.arrayElement([null]),
+    ...overrideResponse,
+  })
 
 export const getGetQualityModerationStatusQualityModerationStatusGetResponseMock =
   (
@@ -380,6 +537,78 @@ export const getSetFullscreenAppQualityModerationAppIdFullscreenPostResponseMock
     ...overrideResponse,
   })
 
+export const getRequestQualityAnalysisQualityModerationAppIdAnalysisPostMockHandler =
+  (
+    overrideResponse?:
+      | QualityAnalysisResponse
+      | ((
+          info: Parameters<Parameters<typeof http.post>[1]>[0],
+        ) => Promise<QualityAnalysisResponse> | QualityAnalysisResponse),
+    options?: RequestHandlerOptions,
+  ) => {
+    return http.post(
+      "*/quality-moderation/:appId/analysis",
+      async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+        return HttpResponse.json(
+          overrideResponse !== undefined
+            ? typeof overrideResponse === "function"
+              ? await overrideResponse(info)
+              : overrideResponse
+            : getRequestQualityAnalysisQualityModerationAppIdAnalysisPostResponseMock(),
+          { status: 202 },
+        )
+      },
+      options,
+    )
+  }
+
+export const getGetQualityAnalysisQualityModerationAppIdAnalysisGetMockHandler =
+  (
+    overrideResponse?:
+      | QualityAnalysisResponse
+      | ((
+          info: Parameters<Parameters<typeof http.get>[1]>[0],
+        ) => Promise<QualityAnalysisResponse> | QualityAnalysisResponse),
+    options?: RequestHandlerOptions,
+  ) => {
+    return http.get(
+      "*/quality-moderation/:appId/analysis",
+      async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+        return HttpResponse.json(
+          overrideResponse !== undefined
+            ? typeof overrideResponse === "function"
+              ? await overrideResponse(info)
+              : overrideResponse
+            : getGetQualityAnalysisQualityModerationAppIdAnalysisGetResponseMock(),
+          { status: 200 },
+        )
+      },
+      options,
+    )
+  }
+
+export const getGetQualityAnalysisIconQualityModerationAppIdAnalysisAnalysisIdIconGetMockHandler =
+  (
+    overrideResponse?:
+      | unknown
+      | ((
+          info: Parameters<Parameters<typeof http.get>[1]>[0],
+        ) => Promise<unknown> | unknown),
+    options?: RequestHandlerOptions,
+  ) => {
+    return http.get(
+      "*/quality-moderation/:appId/analysis/:analysisId/icon",
+      async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+        if (typeof overrideResponse === "function") {
+          await overrideResponse(info)
+        }
+
+        return new HttpResponse(null, { status: 200 })
+      },
+      options,
+    )
+  }
+
 export const getGetQualityModerationStatusQualityModerationStatusGetMockHandler =
   (
     overrideResponse?:
@@ -694,6 +923,9 @@ export const getSetFullscreenAppQualityModerationAppIdFullscreenPostMockHandler 
     )
   }
 export const getQualityModerationMock = () => [
+  getRequestQualityAnalysisQualityModerationAppIdAnalysisPostMockHandler(),
+  getGetQualityAnalysisQualityModerationAppIdAnalysisGetMockHandler(),
+  getGetQualityAnalysisIconQualityModerationAppIdAnalysisAnalysisIdIconGetMockHandler(),
   getGetQualityModerationStatusQualityModerationStatusGetMockHandler(),
   getGetPassingQualityAppsQualityModerationPassingAppsGetMockHandler(),
   getGetAppPickRecommendationsQualityModerationAppPickRecommendationsGetMockHandler(),

@@ -30,7 +30,8 @@ export default defineConfig({
       },
     },
     input: {
-      target: "http://localhost:8000/openapi.json",
+      target:
+        process.env.BACKEND_OPENAPI_URL ?? "http://localhost:8000/openapi.json",
     },
   },
   "flathub-pipeline-file-transfomer": {
