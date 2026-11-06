@@ -1,0 +1,34 @@
+# syntax=docker/dockerfile:1
+# From backend/, build the normal backend image first, then this image.
+# Place appraise-models-v0.2.2.tar.gz from the trusted release in appraise/.
+# The source commit, archive checksum, and encoder revision are pinned together
+# in app/quality_analysis_release.py. No build credentials are required.
+# Run the offline smoke test in utils/smoke_quality_analysis.py before enabling
+# QUALITY_ANALYSIS_ENABLED on web and worker; real-model validation is pending.
+# Compose: docker compose --profile appraise up --build
+# Other deployments: ordinary workers must use --queues default slow.
+ARG BACKEND_IMAGE=backend_backend:latest
+FROM ${BACKEND_IMAGE} AS appraise-builder
+COPY --from=ghcr.io/astral-sh/uv:0.9.6 /uv /bin/uv
+RUN apt-get update && apt-get install -y --no-install-recommends git
+ENV UV_PYTHON_INSTALL_DIR=/opt/appraise-python HF_HOME=/opt/appraise-hf
+RUN uv python install 3.12
+COPY app/quality_analysis_release.py /tmp/appraise-release.py
+RUN git clone https://github.com/razzeee/appraise.git /opt/appraise && \
+    git -C /opt/appraise checkout "$(python -c 'import runpy; print(runpy.run_path("/tmp/appraise-release.py")["COMMIT"])')"
+WORKDIR /opt/appraise
+RUN uv sync --python 3.12 --extra embeddings --locked --no-dev --no-cache
+# Supply this release asset locally; never put download credentials into layers.
+COPY appraise/appraise-models-v0.2.2.tar.gz /tmp/models.tar.gz
+RUN python -c 'import runpy; print(runpy.run_path("/tmp/appraise-release.py")["IDENTITY"]["bundle"] + "  /tmp/models.tar.gz")' | sha256sum -c - && \
+    tar -xzf /tmp/models.tar.gz -C /opt/appraise && rm /tmp/models.tar.gz
+COPY appraise/prepare.py /tmp/prepare-appraise.py
+RUN /opt/appraise/.venv/bin/python /tmp/prepare-appraise.py
+
+FROM ${BACKEND_IMAGE}
+COPY --from=appraise-builder /opt/appraise-python /opt/appraise-python
+COPY --from=appraise-builder /opt/appraise /opt/appraise
+COPY --from=appraise-builder /opt/appraise-hf /opt/appraise-hf
+ENV HF_HOME=/opt/appraise-hf HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
+WORKDIR /app
+CMD ["dramatiq", "app.quality_analysis_tasks", "--queues", "quality-analysis", "--processes", "1", "--threads", "1"]

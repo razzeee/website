@@ -133,5 +133,7 @@ class Settings(BaseSettings):
     force_recompute_stats: bool = False
     audit_log_retention_days: int = 90
 
+    quality_analysis_enabled: bool = False
+
 
 settings = Settings()
