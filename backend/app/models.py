@@ -4547,6 +4547,33 @@ class Exceptions(Base):
         return {exception.app_id: exception.value for exception in exceptions}
 
 
+class CheckerHealthArtifact(Base):
+    __tablename__ = "checkerhealthartifact"
+    __table_args__ = (
+        Index(
+            "ix_checkerhealthartifact_run_attempt", "run_id", "run_attempt", unique=True
+        ),
+    )
+
+    artifact_id = mapped_column(BigInteger, primary_key=True, autoincrement=False)
+    run_id = mapped_column(BigInteger, nullable=False)
+    run_attempt = mapped_column(Integer, nullable=False)
+    imported_at = mapped_column(DateTime, nullable=False, server_default=func.now())
+
+
+class CheckerHealthObservation(Base):
+    __tablename__ = "checkerhealthobservation"
+
+    artifact_id = mapped_column(
+        BigInteger, ForeignKey("checkerhealthartifact.artifact_id"), primary_key=True
+    )
+    app_id = mapped_column(String, primary_key=True, index=True)
+    run_id = mapped_column(BigInteger, nullable=False)
+    run_attempt = mapped_column(Integer, nullable=False)
+    observed_at = mapped_column(DateTime, nullable=False)
+    report = mapped_column(JSONB, nullable=False)
+
+
 class MaintenanceUpstream(Base):
     """Last Anitya observation, kept separate from curator-owned triage."""
 
