@@ -3,7 +3,7 @@
 import { ReactNode, useEffect } from "react"
 import { useRouter } from "src/i18n/navigation"
 import { useUserContext } from "../../../../src/context/user-info"
-import { Permission } from "../../../../src/codegen"
+import { hasAdminAccess } from "../../../../src/utils/admin-access.mjs"
 import Spinner from "../../../../src/components/Spinner"
 
 interface AdminLayoutClientProps {
@@ -17,25 +17,6 @@ export default function AdminLayoutClient({
 }: AdminLayoutClientProps) {
   const router = useRouter()
   const user = useUserContext()
-
-  // Check if user has any admin permissions
-  const hasAdminAccess = (user: any) => {
-    if (!user?.permissions) {
-      return false
-    }
-
-    const adminPermissions = [
-      Permission.moderation,
-      Permission["quality-moderation"],
-      Permission["view-users"],
-      Permission["modify-users"],
-      Permission["manage-oidc-clients"],
-    ]
-
-    return adminPermissions.some((permission) =>
-      user.permissions.some((p: string) => p === permission),
-    )
-  }
 
   useEffect(() => {
     if (!user.loading && user.info && !hasAdminAccess(user.info)) {

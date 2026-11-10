@@ -1,0 +1,16 @@
+[
+  { "path": "/en", "status": 200, "contains": "Flathub" },
+  {
+    "path": "/en/apps/org.mozilla.firefox",
+    "status": 200,
+    "contains": "Firefox"
+  },
+  {
+    "path": "/en/apps/category/graphics/1",
+    "status": 200,
+    "contains": "Flathub"
+  },
+  { "path": "/en/apps/search?q=kde", "status": 200, "contains": "Flathub" },
+  { "path": "/en/about", "status": 200, "contains": "Flathub" },
+  { "path": "/home", "status": 308, "location": "/en/" }
+]

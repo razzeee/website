@@ -1,0 +1,62 @@
+name: Start migration checks
+
+on:
+  push:
+    paths:
+      - "frontend/**"
+      - ".github/workflows/start_ci.yml"
+  pull_request:
+    paths:
+      - "frontend/**"
+      - ".github/workflows/start_ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis@sha256:ec1c2d3603c3d7d65b153bedda0248b641aa3bd7684503406b27b9e870ac0796
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      # 6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      # 6.4.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: "24"
+      - run: corepack enable pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --dir experiments/start install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm test
+      - name: Check benchmark fixture safety
+        run: node --test scripts/benchmark/fixtures.check.mjs scripts/benchmark/http.check.mjs
+      - name: Check cache, authorization and HTTP contracts
+        run: pnpm --dir experiments/start test
+        env:
+          REDIS_URL: redis://127.0.0.1:6379
+      - name: Build standalone runtime
+        run: pnpm --dir experiments/start build
+        env:
+          NEXT_PUBLIC_SENTRY_DSN: http://public@127.0.0.1:4101/1
+      - name: Check runtime-only image
+        run: |
+          docker build -t flathub-start:ci experiments/start
+          docker run --rm --read-only --tmpfs /tmp --entrypoint node \
+            flathub-start:ci --input-type=module -e \
+            "await import('./server/src/cache.server.mjs'); await import('./server/src/cdn.server.mjs')"

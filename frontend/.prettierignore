@@ -1,3 +1,8 @@
 public/locales/
 pnpm-lock.yaml
 src/data/countries.topo.json
+experiments/start/.output/
+experiments/start/.tanstack/
+experiments/start/dist/
+experiments/start/src/routeTree.gen.ts
+experiments/start/pnpm-lock.yaml

@@ -13,6 +13,9 @@ export default typescriptEslint.config(
     ignores: [
       "**/node_modules/**",
       "**/.next/**",
+      "**/.output/**",
+      "**/.tanstack/**",
+      "experiments/start/src/routeTree.gen.ts",
       "**/out/**",
       "**/dist/**",
       "**/build/**",
