@@ -60,7 +60,11 @@ interface YearInReviewProps {
   hasPreviousYear?: boolean
   topApps: YearInReviewMostPopularApp[]
   topGames: YearInReviewMostPopularApp[]
-  previousCharts?: Partial<Record<"top-apps" | "top-games", string[]>>
+  previousCharts?: {
+    limit: number
+    "top-apps": string[]
+    "top-games": string[]
+  }
   topEmulators: YearInReviewMostPopularApp[]
   topGameStores: YearInReviewMostPopularApp[]
   topGameUtilities: YearInReviewMostPopularApp[]
@@ -174,30 +178,26 @@ export function TopAppsSection({
   const t = useTranslations()
   const locale = useLocale()
 
-  function rankChange(chart: string, id: string, index: number, limit: number) {
-    if (chart !== "top-apps" && chart !== "top-games") {
+  function rankChange(chart: string, id: string, index: number) {
+    if (!previousCharts || (chart !== "top-apps" && chart !== "top-games")) {
       return null
     }
-    const previous = previousCharts?.[chart]
-    if (!previous?.length) {
+    const prior = previousCharts[chart].indexOf(id)
+    const outsideTopTen = prior < 0
+    if (prior === index || (outsideTopTen && previousCharts.limit < 10)) {
       return null
     }
-    const prior = previous.indexOf(id)
-    if (prior === index) {
-      return null
-    }
-    const isNew = prior < 0 || prior >= limit
     const movedUp = prior > index
-    const Icon = isNew ? Star : movedUp ? ArrowUp : ArrowDown
-    const label = isNew
-      ? t("year-in-review.chart-entry")
+    const Icon = outsideTopTen ? Star : movedUp ? ArrowUp : ArrowDown
+    const label = outsideTopTen
+      ? t("year-in-review.outside-previous-top-ten")
       : t("year-in-review.previous-rank", { rank: prior + 1, year: year - 1 })
     return (
       <span
         title={label}
         className={clsx(
           "inline-flex items-center justify-center gap-0.5 rounded px-1 py-0.5 text-[11px] leading-none font-bold tabular-nums",
-          isNew
+          outsideTopTen
             ? "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200"
             : movedUp
               ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200"
@@ -205,7 +205,7 @@ export function TopAppsSection({
         )}
       >
         <Icon size={12} strokeWidth={2.5} aria-hidden />
-        {!isNew && (
+        {!outsideTopTen && (
           <span aria-hidden>
             {Math.abs(prior - index).toLocaleString(locale)}
           </span>
@@ -271,7 +271,7 @@ export function TopAppsSection({
                                 {(index + 1).toLocaleString(locale, {
                                   minimumIntegerDigits: 2,
                                 })}
-                                {rankChange(key, app.app_id, index, limit)}
+                                {rankChange(key, app.app_id, index)}
                               </span>
                               <div>
                                 {app.icon && (
@@ -303,21 +303,6 @@ export function TopAppsSection({
                           </li>
                         ))}
                       </ol>
-                      {(key === "top-apps" || key === "top-games") &&
-                        !!previousCharts?.[key]?.length &&
-                        apps
-                          .slice(0, limit)
-                          .some(
-                            (app) =>
-                              !previousCharts[key]
-                                .slice(0, limit)
-                                .includes(app.app_id),
-                          ) && (
-                          <p className="flex items-center gap-1.5 border-t border-[var(--line)] px-4 py-2 text-xs text-[var(--subtle)]">
-                            <Star size={12} aria-hidden />
-                            {t("year-in-review.chart-entry")}
-                          </p>
-                        )}
                     </section>
                   ),
               )}
@@ -380,11 +365,12 @@ export function GeographicInsightsSection({
           />
         </div>
 
-        <div className="grid gap-7 lg:grid-cols-2 lg:gap-10">
+        {/* Share the heading, column labels, and five ranked rows on desktop. */}
+        <div className="grid gap-7 lg:grid-cols-2 lg:grid-rows-[repeat(7,auto)] lg:gap-x-10 lg:gap-y-0">
           {/* Fastest Growing Regions */}
           {geographicStats.fastest_growing_regions &&
             geographicStats.fastest_growing_regions.length > 0 && (
-              <div className="order-2 min-w-0">
+              <div className="order-2 min-w-0 lg:row-span-full lg:grid lg:grid-rows-subgrid">
                 <h3 className="mb-3 text-sm font-semibold">
                   {t("year-in-review.fastest-growing-regions")}
                 </h3>
@@ -395,6 +381,7 @@ export function GeographicInsightsSection({
                   </span>
                 </div>
                 <div
+                  className="lg:row-span-5 lg:grid lg:grid-rows-subgrid"
                   role="list"
                   aria-label={t("year-in-review.fastest-growing-regions")}
                 >
@@ -407,10 +394,7 @@ export function GeographicInsightsSection({
                         <div
                           key={region.country_code}
                           role="listitem"
-                          className={clsx(
-                            "flex items-center gap-3 border-b border-border/50 py-3.5 last:border-0",
-                            perCapita && "lg:min-h-[71px]",
-                          )}
+                          className="flex items-center gap-3 border-b border-border/50 py-3.5 last:border-0"
                         >
                           <span className="w-3 text-xs tabular-nums text-foreground/70">
                             {idx + 1}.
@@ -443,7 +427,7 @@ export function GeographicInsightsSection({
 
           {/* Top Countries */}
           {geographicStats.top_countries && (
-            <div className="order-1 min-w-0">
+            <div className="order-1 min-w-0 lg:row-span-full lg:grid lg:grid-rows-subgrid">
               <h3 className="mb-3 text-sm font-semibold">
                 {t("year-in-review.top-countries")}
               </h3>
@@ -457,7 +441,11 @@ export function GeographicInsightsSection({
                   )}
                 </span>
               </div>
-              <div role="list" aria-label={t("year-in-review.top-countries")}>
+              <div
+                className="lg:row-span-5 lg:grid lg:grid-rows-subgrid"
+                role="list"
+                aria-label={t("year-in-review.top-countries")}
+              >
                 {topCountries.slice(0, 5).map((country, idx) => {
                   const countryName =
                     regionDisplay.of(country.country_code) ||
