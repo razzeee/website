@@ -182,7 +182,7 @@ export const HeroBanner = ({
                   </div>
                   {data.appstream.screenshots?.[0] && (
                     <Imgproxy
-                      pictureClassName="hidden w-2/3 xl:flex justify-center items-center overflow-hidden relative h-auto"
+                      pictureClassName="hidden w-2/3 xl:grid place-items-center overflow-hidden relative h-auto"
                       {...findBiggestScreenshotSize(
                         data.appstream.screenshots[0],
                       )}

@@ -122,7 +122,7 @@ export function ScheduledAppSelectionSection({ selection }: Props) {
                     alt=""
                     fill
                     trim={{ threshold: 50, color: "FF00FF" }}
-                    pictureClassName="block aspect-[9/4] w-full overflow-hidden rounded-md"
+                    pictureClassName="grid aspect-[9/4] w-full overflow-hidden rounded-md"
                     className="size-full rounded-md object-cover object-top"
                   />
                 ) : null}

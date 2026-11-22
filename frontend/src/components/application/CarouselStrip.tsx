@@ -119,7 +119,7 @@ export const CarouselStrip = ({
                     sizes={`min(calc(100vw - 32px), calc(${56.25 * firstSlideAspectRatio}vw - ${32 * firstSlideAspectRatio}px), ${468 * firstSlideAspectRatio}px)`}
                     loading="eager"
                     fetchPriority="high"
-                    pictureClassName="flex size-full items-center justify-center"
+                    pictureClassName="grid size-full place-items-center"
                     className="size-full object-contain"
                   />
                 </div>

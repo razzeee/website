@@ -110,7 +110,7 @@ const BadgesClient = (): JSX.Element => {
             rel="license"
             href="http://creativecommons.org/publicdomain/zero/1.0/"
           >
-            <Image priority src={cc0} alt="CC0" />
+            <Image priority src={cc0} alt="CC0" placeholder="blur" />
           </a>
           <br />
           {t.rich("badge-copyright", {

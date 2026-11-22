@@ -5,6 +5,7 @@ import {
 } from "@imgproxy/imgproxy-node"
 import { cn } from "@/lib/utils"
 import { ConditionalWrapper } from "@/lib/helpers"
+import { ImageWithPlaceholder } from "./ImageWithPlaceholder"
 
 type Options = NonNullable<IGenerateImageUrl["options"]>
 type Format = Options["format"]
@@ -24,6 +25,7 @@ type ImgproxyProps = {
 } & Omit<Options, "resize" | "size" | "resize_type" | "dpr" | "format">
 
 const imgproxyEndpoint = "https://imgproxy.flathub.org/"
+const previewWidth = 16
 
 export const Imgproxy = ({
   className,
@@ -52,8 +54,8 @@ export const Imgproxy = ({
           resize: {
             width: targetWidth,
             height:
-              responsiveWidths && width && height && targetWidth
-                ? Math.round((targetWidth / width) * height)
+              width && height && targetWidth !== width && targetWidth
+                ? Math.max(1, Math.round((targetWidth / width) * height))
                 : height,
             resizing_type: fill ? "fill-down" : "fit",
           },
@@ -97,23 +99,28 @@ export const Imgproxy = ({
         </button>
       )}
     >
-      <picture className={pictureClassName}>
+      <ImageWithPlaceholder
+        key={resolvedSrc}
+        pictureClassName={pictureClassName}
+        preview={
+          (typeof src !== "string" && src.blurDataURL) ||
+          imgproxyUrl("webp", 1, previewWidth)
+        }
+        src={imgproxyUrl("webp", 1)}
+        srcSet={responsiveWidths?.length ? srcSet("webp") : undefined}
+        alt={alt}
+        className={imgClassName}
+        width={fill ? undefined : width}
+        height={fill ? undefined : height}
+        loading={loading}
+        decoding="async"
+        fetchPriority={fetchPriority}
+        sizes={sizes}
+        draggable={draggable}
+      >
         <source srcSet={srcSet("avif")} sizes={sizes} type="image/avif" />
         <source srcSet={srcSet("webp")} sizes={sizes} type="image/webp" />
-        <img
-          src={imgproxyUrl("webp", 1)}
-          srcSet={responsiveWidths?.length ? srcSet("webp") : undefined}
-          alt={alt}
-          className={imgClassName}
-          width={fill ? undefined : width}
-          height={fill ? undefined : height}
-          loading={loading}
-          decoding="async"
-          fetchPriority={fetchPriority}
-          sizes={sizes}
-          draggable={draggable}
-        />
-      </picture>
+      </ImageWithPlaceholder>
     </ConditionalWrapper>
   )
 }

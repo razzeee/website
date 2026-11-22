@@ -1,6 +1,6 @@
-import { default as Image } from "next/image"
-import { default as FlathubImage } from "../Image"
-import React, { FunctionComponent } from "react"
+import { getImageProps } from "next/image"
+import { ImageWithPlaceholder } from "../ImageWithPlaceholder"
+import { type FunctionComponent } from "react"
 import FallbackAvatar from "boring-avatars"
 import { useTranslations } from "next-intl"
 
@@ -21,15 +21,16 @@ const Avatar: FunctionComponent<Props> = (props: Props) => {
 
   const { avatarUrl, userName } = props
 
+  const fallback = (
+    <FallbackAvatar
+      size={38}
+      name={userName}
+      variant="marble"
+      colors={[celestialBlue, variationTone]}
+    />
+  )
   if (!avatarUrl) {
-    return (
-      <FallbackAvatar
-        size={38}
-        name={userName}
-        variant="marble"
-        colors={[celestialBlue, variationTone]}
-      />
-    )
+    return fallback
   }
 
   const elementStyle = {
@@ -45,11 +46,13 @@ const Avatar: FunctionComponent<Props> = (props: Props) => {
   // If the avatar is hosted on our own GitLab instance, we can't use the
   // optimized image loader because it will append image sizes to the URL
   // which KDE GitLab doesn't seem to like.
-  if (avatarUrl.startsWith("https://invent.kde.org/uploads/")) {
-    return React.createElement(FlathubImage, elementStyle)
-  }
+  const unoptimized = avatarUrl.startsWith("https://invent.kde.org/uploads/")
+  const { props: image } = getImageProps({ ...elementStyle, unoptimized })
+  const preview = unoptimized
+    ? fallback
+    : getImageProps({ ...elementStyle, width: 8, height: 8 }).props.src
 
-  return React.createElement(Image, elementStyle)
+  return <ImageWithPlaceholder key={avatarUrl} {...image} preview={preview} />
 }
 
 export default Avatar

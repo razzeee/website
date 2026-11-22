@@ -82,6 +82,7 @@ const nextConfig: (phase: string) => NextConfig = (phase) => ({
       : undefined,
   cacheMaxMemorySize: process.env.NODE_ENV === "production" ? 0 : undefined,
   images: {
+    formats: ["image/avif", "image/webp"],
     remotePatterns: [
       {
         protocol: "https",
