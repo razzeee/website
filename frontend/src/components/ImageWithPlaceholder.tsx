@@ -1,15 +1,10 @@
 "use client"
 
-import {
-  useState,
-  type ComponentPropsWithoutRef,
-  type ReactElement,
-  type ReactNode,
-} from "react"
+import { useState, type ComponentPropsWithoutRef, type ReactNode } from "react"
 import { cn } from "@/lib/utils"
 
 type Props = Omit<ComponentPropsWithoutRef<"img">, "onLoad" | "onError"> & {
-  preview: string | ReactElement
+  preview: string
   pictureClassName?: string
   children?: ReactNode
 }
@@ -30,29 +25,21 @@ export function ImageWithPlaceholder({
 
   return (
     <span className={cn("relative inline-grid", pictureClassName)}>
-      {pending &&
-        (typeof preview === "string" ? (
-          <img
-            src={preview}
-            alt=""
-            aria-hidden
-            draggable={false}
-            width={width}
-            height={height}
-            loading={loading}
-            className={cn(
-              "pointer-events-none col-start-1 row-start-1",
-              className,
-            )}
-          />
-        ) : (
-          <span
-            aria-hidden
-            className="pointer-events-none col-start-1 row-start-1"
-          >
-            {preview}
-          </span>
-        ))}
+      {pending && (
+        <img
+          src={preview}
+          alt=""
+          aria-hidden
+          draggable={false}
+          width={width}
+          height={height}
+          loading={loading}
+          className={cn(
+            "pointer-events-none col-start-1 row-start-1",
+            className,
+          )}
+        />
+      )}
       <picture className="contents">
         {children}
         <img
