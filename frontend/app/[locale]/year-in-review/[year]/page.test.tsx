@@ -70,6 +70,19 @@ test("rejects future years before requesting data", async () => {
   expect(getYearInReviewYearInReviewYearGet).not.toHaveBeenCalled()
 })
 
+test("reports an unavailable preview without forwarding the request error", async () => {
+  const upstream = {
+    isAxiosError: true,
+    response: { status: 503 },
+    config: { headers: { Cookie: "session=admin" } },
+  }
+  vi.mocked(getYearInReviewYearInReviewYearGet).mockRejectedValue(upstream)
+  await expect(page("2026")).rejects.toThrow(
+    "Year statistics temporarily unavailable",
+  )
+  await expect(page("2026")).rejects.not.toHaveProperty("cause")
+})
+
 test("keeps published years independent of the visitor's session", async () => {
   await page("2025")
   expect(headers).not.toHaveBeenCalled()

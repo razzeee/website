@@ -25,6 +25,112 @@ APP_LISTS = (
 )
 
 
+@pytest.mark.parametrize(
+    "source", ["none", "winner", "previous", "legacy", "pool_timeout"]
+)
+def test_snapshot_storage_failure_returns_persisted_report_or_503(monkeypatch, source):
+    from sqlalchemy.exc import SQLAlchemyError
+    from sqlalchemy.exc import TimeoutError as DatabaseTimeoutError
+
+    from app.routes import year_in_review as route
+
+    report = json.loads(
+        (
+            Path(__file__).parent
+            / "snapshots/year_in_review_smoke__year_in_review__test_year_in_review.json"
+        ).read_text()
+    )
+    report["geographic_stats"] = None
+    winner = {
+        **report,
+        "total_downloads": 123,
+        "_snapshot": {"version": 3, "through": "2024-12-31"},
+    }
+
+    def load(year, primary=False):
+        if source == "legacy":
+            return {"year": 2024, "total_downloads": 10}
+        if source == "pool_timeout":
+            raise DatabaseTimeoutError()
+        if source == "previous":
+            if primary:
+                raise SQLAlchemyError("primary unavailable")
+            return {
+                **winner,
+                "through": "2024-12-18",
+                "_snapshot": {"version": 3, "through": "2024-12-18"},
+            }
+        return (
+            {**winner, "through": "2024-12-31"}
+            if primary and source == "winner"
+            else None
+        )
+
+    monkeypatch.setattr(route.stats, "_load_year_in_review_base", load)
+    monkeypatch.setattr(
+        route.stats, "_build_year_in_review_base", AsyncMock(return_value=report)
+    )
+
+    def fail_save(*args):
+        raise SQLAlchemyError("write failed")
+
+    monkeypatch.setattr(route.stats, "_save_year_in_review_base", fail_save)
+    monkeypatch.setattr(
+        route.stats,
+        "_add_translations_to_year_in_review",
+        AsyncMock(side_effect=lambda data, locale: data.copy()),
+    )
+    monkeypatch.setattr(
+        route,
+        "_get_year_in_review_v4_cached",
+        route._get_year_in_review_v4_cached.__wrapped__,
+    )
+    api = FastAPI()
+    route.register_to_app(api)
+    api.dependency_overrides[login_state] = lambda: LoginInformation(
+        state=LoginState.LOGGED_OUT, user=None, method=None
+    )
+    with TestClient(api) as client:
+        response = client.get("/year-in-review/2024")
+    if source in ("winner", "previous"):
+        assert response.status_code == 200
+        assert response.json()["total_downloads"] == 123
+        assert response.json()["through"] == (
+            "2024-12-31" if source == "winner" else "2024-12-18"
+        )
+    else:
+        assert response.status_code == 503
+        assert response.headers["retry-after"] == "60"
+
+
+def test_signed_in_session_lookup_timeout_returns_503(monkeypatch):
+    from fastapi import Request
+    from sqlalchemy.exc import TimeoutError as DatabaseTimeoutError
+    from starlette.middleware.sessions import SessionMiddleware
+
+    from app import login_info
+    from app.routes import year_in_review
+
+    api = FastAPI()
+    api.add_middleware(SessionMiddleware, secret_key="test")
+    year_in_review.register_to_app(api)
+
+    @api.get("/session")
+    def session(request: Request):
+        request.session["user-id"] = 1
+
+    db = MagicMock()
+    db.return_value.__enter__.return_value.session.get.side_effect = (
+        DatabaseTimeoutError()
+    )
+    monkeypatch.setattr(login_info, "get_db", db)
+    with TestClient(api) as client:
+        client.get("/session")
+        response = client.get("/year-in-review/2026")
+    assert response.status_code == 503
+    assert response.headers["retry-after"] == "60"
+
+
 def test_cached_moderator_preview_stays_private(monkeypatch):
     from app.routes import year_in_review
 
@@ -205,7 +311,7 @@ def test_historical_response_with_missing_metadata(monkeypatch, metadata):
     expected["name"] = expected["name"] or app_id
     assert response.json()["top_chart_limit"] == 10
     assert redis.get.call_args.args[0].startswith(
-        "cache:endpoint:_get_year_in_review_v3_cached:"
+        "cache:endpoint:_get_year_in_review_v4_cached:"
     )
     assert response.json()["unavailable_app_ids"] == (
         [] if fields or metadata in ("redirected", "eol-redirect", "eol") else [app_id]

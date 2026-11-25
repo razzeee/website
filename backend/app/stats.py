@@ -6,11 +6,12 @@ import json
 import logging
 from collections import defaultdict
 from collections.abc import Mapping
-from typing import TypedDict, cast
+from typing import Literal, TypedDict, cast
 from urllib.parse import urlparse, urlunparse
 
 import httpx
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 
 from app import utils
 
@@ -19,6 +20,7 @@ from .country_population import get_country_population
 from .database import get_db as stats_get_db
 from .trending import calculate_trending_score as _calculate_trending_score
 from .types import JSONValue, is_json_object
+from .year_in_review_favorites import favorite_charts
 
 logger = logging.getLogger(__name__)
 
@@ -591,7 +593,6 @@ def update(sqldb):
     ]
     if favorites_list:
         search.create_or_update_apps(favorites_list)
-    _generate_and_store_year_in_review_stats(sqldb)
 
 
 _YEAR_IN_REVIEW_SNAPSHOT_VERSION = 3
@@ -601,6 +602,10 @@ _GAMING_APP_CHARTS = ("top_emulators", "top_game_stores", "top_game_utilities")
 
 class _IncompleteYearStats(Exception):
     """A required daily source is unavailable; retry without publishing."""
+
+
+class ReviewSnapshotUnavailable(Exception):
+    """No reliable snapshot is available to serve yet."""
 
 
 def _year_in_review_is_finalized(
@@ -622,26 +627,22 @@ def _year_in_review_snapshot_version(data: dict[str, JSONValue]):
     return snapshot.get("version") if isinstance(snapshot, dict) else None
 
 
-def _generate_and_store_year_in_review_stats(sqldb):
+def generate_and_store_year_in_review_stats():
     current_year = utils.utcnow().year
     first_year = FIRST_STATS_DATE.year
 
     for year in range(first_year, current_year + 1):
         previous = None
         if year < current_year:
-            existing = models.YearInReviewStats.get_for_year(sqldb, year)
-            previous = existing.data if existing else None
+            previous = _load_year_in_review_base(year, primary=True)
             if previous and _year_in_review_is_finalized(previous, year):
                 continue
 
         try:
-            base_stats = asyncio.run(_build_year_in_review_base(year, previous))
+            asyncio.run(_rebuild_and_store_review(year, previous))
         except Exception:
             logger.exception("Failed to build year-in-review stats for %s", year)
             continue
-
-        if base_stats:
-            models.YearInReviewStats.set_for_year(sqldb, year, base_stats)
 
 
 def _normalize_year_date_range(year: int) -> tuple[datetime.date, datetime.date] | None:
@@ -732,38 +733,22 @@ def _first_seen():
         }
 
 
-def _get_country_downloads_for_year(year: int) -> dict[str, int]:
-    date_range = _normalize_year_date_range(year)
-    return _annual_data(*date_range)[2] if date_range else {}
-
-
-def _get_basic_year_stats(year: int) -> dict[str, int] | None:
+def _get_country_downloads_for_year(
+    year: int, through: datetime.date | None = None
+) -> dict[str, int]:
     date_range = _normalize_year_date_range(year)
     if not date_range:
-        return None
-    sdate, edate = date_range
-    apps, _, _, updates = _annual_data(sdate, edate)
-    with database.get_db() as sqldb:
-        count = (
-            sqldb.query(models.App)
-            .filter(
-                models.App.type == "desktop-application",
-                models.App.initial_release_at >= sdate,
-                models.App.initial_release_at <= edate,
-            )
-            .count()
-        )
-    return {
-        "total_downloads": sum(apps.values()),
-        "new_apps_count": count,
-        "updates_count": updates,
-    }
+        return {}
+    start, end = date_range
+    return _annual_data(start, min(end, through) if through else end)[2]
 
 
-def _get_category_downloads_for_year(year: int) -> dict[str, int]:
+def _get_category_downloads_for_year(
+    year: int, db_type: Literal["writer", "replica"] = "replica"
+) -> dict[str, int]:
     app_downloads = _get_app_downloads_for_year(year)
     result = defaultdict(int)
-    with database.get_db() as sqldb:
+    with database.get_db(db_type) as sqldb:
         rows = (
             sqldb.query(models.App.app_id, models.App.main_category)
             .filter(
@@ -783,17 +768,38 @@ def _get_app_downloads_for_year(year: int) -> dict[str, int]:
     return _annual_data(*date_range)[0] if date_range else {}
 
 
-def _load_year_in_review_base(year: int) -> dict[str, JSONValue] | None:
-    with database.get_db() as sqldb:
+def _load_year_in_review_base(
+    year: int, *, primary: bool = False
+) -> dict[str, JSONValue] | None:
+    with database.get_db("writer" if primary else "replica") as sqldb:
         stored_stats = models.YearInReviewStats.get_for_year(sqldb, year)
         if stored_stats:
             return stored_stats.data
     return None
 
 
-def _save_year_in_review_base(year: int, base_data: dict[str, JSONValue]) -> None:
+def _save_year_in_review_base(
+    year: int, base_data: dict[str, JSONValue], previous: dict[str, JSONValue] | None
+) -> dict[str, JSONValue]:
     with database.get_db("writer") as sqldb:
-        models.YearInReviewStats.set_for_year(sqldb, year, base_data)
+        return models.YearInReviewStats.set_for_year(sqldb, year, base_data, previous)
+
+
+async def _rebuild_and_store_review(year: int, previous: dict[str, JSONValue] | None):
+    rebuilt = await _build_year_in_review_base(year, previous)
+    if not rebuilt:
+        return None
+    winner = _save_year_in_review_base(year, rebuilt, previous)
+    if _year_in_review_snapshot_version(winner) in (1, 2) and winner != previous:
+        # An older publisher finalized while we were rebuilding. Upgrade that
+        # archive, not the stale preview that supplied the first build.
+        try:
+            upgraded = await _build_year_in_review_base(year, winner)
+        except _IncompleteYearStats:
+            return winner
+        if upgraded:
+            return _save_year_in_review_base(year, upgraded, winner)
+    return winner
 
 
 def _build_base_top_list(
@@ -860,6 +866,9 @@ async def _build_year_in_review_base(
     if date_range is None:
         return None
     sdate, edate = date_range
+    catalog_db: Literal["writer", "replica"] = (
+        "writer" if edate == datetime.date(year, 12, 31) else "replica"
+    )
 
     (
         app_downloads,
@@ -897,7 +906,7 @@ async def _build_year_in_review_base(
         non_game_app_ids = set()
         app_main_category = {}
 
-        with database.get_db() as sqldb:
+        with database.get_db(catalog_db) as sqldb:
             all_apps = (
                 sqldb.query(models.App)
                 .filter(models.App.type == "desktop-application")
@@ -1091,7 +1100,7 @@ async def _build_year_in_review_base(
     top_game_utility_ids = _get_top_app_ids(game_utility_app_downloads, 3)
 
     frontend_app_ids, first_seen = await asyncio.gather(
-        loop.run_in_executor(None, database.get_all_appids_for_frontend),
+        loop.run_in_executor(None, database.get_all_appids_for_frontend, catalog_db),
         loop.run_in_executor(None, _first_seen),
     )
     new_apps_count = sum(
@@ -1188,10 +1197,19 @@ async def _build_year_in_review_base(
 
     biggest_growth_by_category = []
     most_improved_by_category = []
+    total_downloads_change = 0
+    total_downloads_change_percentage = 0.0
     if year > 2018:
         prev_year_app_downloads = await loop.run_in_executor(
             None, _get_app_downloads_for_year, year - 1
         )
+        if _normalize_year_date_range(year - 1):
+            prev_downloads = sum(prev_year_app_downloads.values())
+            total_downloads_change = total_downloads - prev_downloads
+            if prev_downloads:
+                total_downloads_change_percentage = round(
+                    total_downloads_change / prev_downloads * 100, 1
+                )
 
         if prev_year_app_downloads and app_downloads:
             app_yoy_growth = _calculate_yoy_growth(
@@ -1261,25 +1279,8 @@ async def _build_year_in_review_base(
         "fastest_growing_regions": fastest_growing_regions,
     }
 
-    total_downloads_change = 0
-    total_downloads_change_percentage = 0.0
-    if year > 2018:  # Only if we have previous year data
-        prev_year_stats = await loop.run_in_executor(
-            None, _get_basic_year_stats, year - 1
-        )
-        if prev_year_stats:
-            prev_downloads = prev_year_stats.get("total_downloads", 0)
-
-            downloads_change = total_downloads - prev_downloads
-            downloads_change_pct = (
-                (downloads_change / prev_downloads * 100) if prev_downloads > 0 else 0
-            )
-
-            total_downloads_change = downloads_change
-            total_downloads_change_percentage = round(downloads_change_pct, 1)
-
     def _fetch_quality_apps():
-        with database.get_db() as sqldb:
+        with database.get_db(catalog_db) as sqldb:
             if config.settings.env == "development":
                 return list(non_game_app_ids)
             else:
@@ -1328,7 +1329,7 @@ async def _build_year_in_review_base(
     trending_categories = []
     if year > 2018:
         prev_category_downloads = await loop.run_in_executor(
-            None, _get_category_downloads_for_year, year - 1
+            None, _get_category_downloads_for_year, year - 1, catalog_db
         )
         current_category_downloads = defaultdict(int)
 
@@ -1375,7 +1376,42 @@ async def _build_year_in_review_base(
                     }
                 )
 
+    def _favorite_charts():
+        favorite = models.UserFavoriteApp
+        with database.get_db(catalog_db) as db:
+            app_ids = {
+                app_id
+                for (app_id,) in db.query(models.App.app_id).filter(
+                    models.App.type.in_(("desktop-application", "console-application"))
+                )
+            }
+            downloads = {
+                app: app_downloads[app]
+                for app in app_ids
+                if app_downloads.get(app, 0) > 0
+            }
+            rows = db.query(favorite.app_id, favorite.account).filter(
+                favorite.created >= sdate,
+                favorite.created < edate + datetime.timedelta(days=1),
+            )
+            saves = [(app, account) for app, account in rows if app in app_ids]
+        return favorite_charts(downloads, saves)
+
+    previous_snapshot = previous.get("_snapshot") if previous else None
+    if (
+        previous
+        and isinstance(previous_snapshot, dict)
+        and previous_snapshot.get("through") == f"{year}-12-31"
+    ):
+        favorite_standouts = previous.get("favorite_standouts", [])
+        favorite_pairs = previous.get("favorite_pairs", [])
+    else:
+        favorite_standouts, favorite_pairs = (
+            await asyncio.to_thread(_favorite_charts) if year >= 2026 else ([], [])
+        )
     base_result = {
+        "favorite_standouts": favorite_standouts,
+        "favorite_pairs": favorite_pairs,
         "_snapshot": snapshot,
         "year": year,
         "total_downloads": total_downloads,
@@ -1413,9 +1449,17 @@ async def _add_translations_to_year_in_review(
 ) -> dict[str, JSONValue]:
     loop = asyncio.get_running_loop()
 
-    def _collect_app_ids() -> set[str]:
-        app_ids: set[str] = set()
-        for key in [
+    def _get_items(
+        key: str, source: dict[str, JSONValue] = base_data
+    ) -> list[dict[str, JSONValue]]:
+        value = source.get(key)
+        if not isinstance(value, list):
+            return []
+        return [item for item in value if is_json_object(item)]
+
+    flat_charts = {
+        key: _get_items(key)
+        for key in (
             "top_apps",
             "top_games",
             "top_emulators",
@@ -1426,15 +1470,17 @@ async def _add_translations_to_year_in_review(
             "newcomers_by_category",
             "most_improved_by_category",
             "hidden_gems",
-        ]:
-            items = base_data.get(key)
-            if isinstance(items, list):
-                for item in items:
-                    if is_json_object(item):
-                        app_id = item.get("app_id")
-                        if isinstance(app_id, str):
-                            app_ids.add(app_id)
-        return app_ids
+            "favorite_standouts",
+        )
+    }
+
+    def _collect_app_ids() -> set[str]:
+        items = [item for chart in flat_charts.values() for item in chart]
+        for pair in _get_items("favorite_pairs"):
+            items.extend(_get_items("apps", pair))
+        return {
+            app_id for item in items if isinstance(app_id := item.get("app_id"), str)
+        }
 
     def _fetch_translations_for_apps(app_ids: set[str]):
         app_names: dict[str, str] = {}
@@ -1512,33 +1558,17 @@ async def _add_translations_to_year_in_review(
             )
         return translated_items
 
-    def _get_items(key: str) -> list[dict[str, JSONValue]]:
-        value = base_data.get(key)
-        if not isinstance(value, list):
-            return []
-        return [item for item in value if is_json_object(item)]
-
     result = copy.deepcopy(base_data)
+    for key, items in flat_charts.items():
+        result[key] = _apply_translations(items)
+    result["favorite_pairs"] = [
+        {**pair, "apps": _apply_translations(_get_items("apps", pair))}
+        for pair in _get_items("favorite_pairs")
+    ]
     result["unavailable_app_ids"] = [*unavailable]
-    result.pop("_snapshot", None)
-    result["top_apps"] = _apply_translations(_get_items("top_apps"))
-    result["top_games"] = _apply_translations(_get_items("top_games"))
-    result["top_emulators"] = _apply_translations(_get_items("top_emulators"))
-    result["top_game_stores"] = _apply_translations(_get_items("top_game_stores"))
-    result["top_game_utilities"] = _apply_translations(_get_items("top_game_utilities"))
-    result["popular_apps_by_category"] = _apply_translations(
-        _get_items("popular_apps_by_category")
-    )
-    result["biggest_growth_by_category"] = _apply_translations(
-        _get_items("biggest_growth_by_category")
-    )
-    result["newcomers_by_category"] = _apply_translations(
-        _get_items("newcomers_by_category")
-    )
-    result["most_improved_by_category"] = _apply_translations(
-        _get_items("most_improved_by_category")
-    )
-    result["hidden_gems"] = _apply_translations(_get_items("hidden_gems"))
+    snapshot = result.pop("_snapshot", None)
+    if isinstance(snapshot, dict):
+        result["through"] = snapshot.get("through")
 
     return result
 
@@ -1553,16 +1583,26 @@ async def get_year_stats(year: int, locale: str = "en"):
         == _YEAR_IN_REVIEW_SNAPSHOT_VERSION
     ):
         try:
-            rebuilt = await _build_year_in_review_base(year, base_data)
+            rebuilt = await _rebuild_and_store_review(year, base_data)
         except _IncompleteYearStats:
             logger.warning("Incomplete year-in-review stats for %s; retry later", year)
             rebuilt = None
+        except SQLAlchemyError as exc:
+            logger.exception(
+                "Failed to rebuild or save year-in-review stats for %s", year
+            )
+            try:
+                rebuilt = _load_year_in_review_base(year, primary=True) or base_data
+            except SQLAlchemyError:
+                rebuilt = base_data
+            if rebuilt is None or (
+                past_year
+                and _year_in_review_snapshot_version(rebuilt)
+                not in (1, 2, _YEAR_IN_REVIEW_SNAPSHOT_VERSION)
+            ):
+                raise ReviewSnapshotUnavailable from exc
         if rebuilt:
             base_data = rebuilt
-            try:
-                _save_year_in_review_base(year, base_data)
-            except Exception:
-                logger.exception("Failed to save year-in-review stats for %s", year)
         elif base_data is None or (
             past_year
             and _year_in_review_snapshot_version(base_data)
@@ -1572,6 +1612,12 @@ async def get_year_stats(year: int, locale: str = "en"):
 
     if base_data is None:
         return None
+    if not past_year:
+        snapshot = base_data.get("_snapshot")
+        if not isinstance(snapshot, dict) or not isinstance(
+            snapshot.get("through"), str
+        ):
+            raise ReviewSnapshotUnavailable
 
     version = _year_in_review_snapshot_version(base_data)
     limit = _TOP_CHART_LIMIT
@@ -1592,7 +1638,14 @@ async def get_year_stats(year: int, locale: str = "en"):
     geographic_stats = result.get("geographic_stats")
     if population is not None and is_json_object(geographic_stats):
         try:
-            countries = await asyncio.to_thread(_get_country_downloads_for_year, year)
+            through = result.get("through")
+            countries = await asyncio.to_thread(
+                _get_country_downloads_for_year,
+                year,
+                datetime.date.fromisoformat(through)
+                if isinstance(through, str)
+                else None,
+            )
         except _IncompleteYearStats:
             logger.warning(
                 "Incomplete country stats for year-in-review %s; skipping population ranking",

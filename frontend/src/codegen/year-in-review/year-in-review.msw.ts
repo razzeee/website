@@ -14,6 +14,43 @@ import type { YearInReviewResult } from "../model"
 export const getGetYearInReviewYearInReviewYearGetResponseMock = (
   overrideResponse: Partial<Extract<YearInReviewResult, object>> = {},
 ): YearInReviewResult => ({
+  through: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 10),
+    null,
+  ]),
+  favorite_standouts: Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1,
+  ).map(() => ({
+    app_id: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    icon: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    summary: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    favorite_rank: faker.number.int(),
+    download_rank: faker.number.int(),
+    favorites_chart_size: faker.number.int(),
+    downloads_chart_size: faker.number.int(),
+  })),
+  favorite_pairs: Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1,
+  ).map(() => ({
+    apps: [
+      {
+        app_id: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        icon: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        summary: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      },
+      {
+        app_id: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        icon: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        summary: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      },
+    ],
+    shared_accounts: faker.number.int(),
+  })),
   unavailable_app_ids: Array.from(
     { length: faker.number.int({ min: 1, max: 10 }) },
     (_, i) => i + 1,

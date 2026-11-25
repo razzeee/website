@@ -18,6 +18,7 @@ def test_population_ranking_uses_all_countries_and_review_year(
         from app import stats
 
     base = {
+        "through": "2024-12-18",
         "geographic_stats": {
             "top_countries": [{"country_code": "US", "downloads": 100_000}],
             "total_countries": 8,
@@ -52,9 +53,10 @@ def test_population_ranking_uses_all_countries_and_review_year(
 
     monkeypatch.setattr(stats, "get_country_population", get_population)
 
-    def get_countries(year):
+    def get_countries(year, through):
         assert population_available
         assert year == 2024
+        assert through == datetime.date(2024, 12, 18)
         return {
             "US": 100_000,
             "DE": 9_000,
@@ -125,7 +127,7 @@ def test_saved_review_survives_incomplete_country_data(monkeypatch, reason):
 
     result = asyncio.run(stats.get_year_stats(2024))
 
-    get_countries.assert_called_once_with(2024)
+    get_countries.assert_called_once_with(2024, None)
     assert result == {**original, "top_chart_limit": 0, "top_games_chart_limit": 0}
     assert result["geographic_stats"].get("top_countries_per_capita") is None
     assert base == original

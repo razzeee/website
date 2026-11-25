@@ -51,6 +51,16 @@ axios.interceptors.response.use(
       return Promise.reject(error)
     }
 
+    // Let the caller retry later when the server specifies a recovery window.
+    if (
+      error.response?.status === 503 &&
+      config.url?.startsWith("/year-in-review/") &&
+      error.response.headers["retry-after"] != null &&
+      Number(error.response.headers["retry-after"]) !== 0
+    ) {
+      return Promise.reject(error)
+    }
+
     if (config._retryCount >= RETRY_CONFIG.maxRetries) {
       console.error(
         `Max retries (${RETRY_CONFIG.maxRetries}) exceeded for ${config.url}`,

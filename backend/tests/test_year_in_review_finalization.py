@@ -2,10 +2,10 @@ import asyncio
 import datetime
 from contextlib import contextmanager
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from sqlalchemy import delete
+from sqlalchemy import delete, text
 
 from app import models, stats, stats_db
 
@@ -23,7 +23,9 @@ def annual_stats(monkeypatch, stats_database):
         yield db
 
     monkeypatch.setattr(stats.database, "get_db", empty_db)
-    monkeypatch.setattr(stats.database, "get_all_appids_for_frontend", set)
+    monkeypatch.setattr(
+        stats.database, "get_all_appids_for_frontend", lambda role: set()
+    )
     records = {}
     monkeypatch.setattr(
         models.YearInReviewStats,
@@ -32,11 +34,12 @@ def annual_stats(monkeypatch, stats_database):
             SimpleNamespace(data=records[year]) if year in records else None
         ),
     )
-    monkeypatch.setattr(
-        models.YearInReviewStats,
-        "set_for_year",
-        lambda db, year, data: records.update({year: data}),
-    )
+
+    def store(db, year, data, previous):
+        records[year] = data
+        return data
+
+    monkeypatch.setattr(models.YearInReviewStats, "set_for_year", store)
 
     def put(day, payload=None):
         stats_db.save_day(
@@ -54,22 +57,60 @@ def annual_stats(monkeypatch, stats_database):
     return clock, put, records, stats_database
 
 
+def test_stale_writer_returns_the_first_final_snapshot(stats_database):
+    def publish(through, favorite, version=3, previous=None):
+        data = {
+            "_snapshot": {"through": through, "version": version},
+            "favorite_standouts": [favorite],
+            "favorite_pairs": [] if version == 3 else ["new pair"],
+        }
+        with stats_database() as db:
+            return models.YearInReviewStats.set_for_year(db, 2026, data, previous)
+
+    preview = publish("2026-12-18", "preview")
+    assert publish("2026-12-17", "older") == preview
+    final = publish("2026-12-31", "winner")
+    assert final["favorite_standouts"] == ["winner"]
+    assert publish("2026-12-31", "late finalizer") == final
+    assert publish("2026-12-30", "late preview") == final
+    assert publish("2026-12-30", "upgraded preview", version=4) == final
+    assert publish("2026-12-31", "stale archive", version=4, previous=preview) == final
+    upgraded = publish("2026-12-31", "recalculated", version=4, previous=final)
+    assert upgraded == {**final, "_snapshot": {"version": 4, "through": "2026-12-31"}}
+
+
+def test_upgrade_rebuilds_from_the_primary_archive_on_conflict(monkeypatch):
+    preview = {"_snapshot": {"version": 2, "through": "2026-12-30"}}
+    archive = {
+        "_snapshot": {"version": 2, "through": "2026-12-31"},
+        "top_apps": ["archived"],
+    }
+    upgraded = {**archive, "_snapshot": {"version": 3, "through": "2026-12-31"}}
+    build = AsyncMock(side_effect=[{"top_apps": ["live"]}, upgraded])
+    store = MagicMock(side_effect=[archive, upgraded])
+    monkeypatch.setattr(stats, "_build_year_in_review_base", build)
+    monkeypatch.setattr(stats, "_save_year_in_review_base", store)
+    assert asyncio.run(stats._rebuild_and_store_review(2026, preview)) == upgraded
+    build.assert_awaited_with(2026, archive)
+    store.assert_called_with(2026, upgraded, archive)
+
+
 def test_rollover_finalizes_only_after_december_31_is_stable(annual_stats, monkeypatch):
     clock, _, records, _ = annual_stats
-    stats._generate_and_store_year_in_review_stats(None)
+    stats.generate_and_store_year_in_review_stats()
     assert records[2018]["updates_count"] == 7
     clock.now = datetime.datetime(2019, 1, 1, tzinfo=datetime.UTC)
-    stats._generate_and_store_year_in_review_stats(None)
+    stats.generate_and_store_year_in_review_stats()
     assert records[2018]["updates_count"] == 14
     clock.now = datetime.datetime(2019, 1, 2, tzinfo=datetime.UTC)
-    stats._generate_and_store_year_in_review_stats(None)
+    stats.generate_and_store_year_in_review_stats()
     assert records[2018]["updates_count"] == 21
     monkeypatch.setattr(
         stats,
         "_build_year_in_review_base",
         MagicMock(side_effect=AssertionError("Finalized year rebuilt")),
     )
-    stats._generate_and_store_year_in_review_stats(None)
+    stats.generate_and_store_year_in_review_stats()
 
 
 def test_missing_day_preserves_snapshot_and_retries(annual_stats):
@@ -83,12 +124,83 @@ def test_missing_day_preserves_snapshot_and_retries(annual_stats):
                 models.StatsDaily.date == datetime.date(2018, 12, 30)
             )
         )
-    stats._generate_and_store_year_in_review_stats(None)
+    stats.generate_and_store_year_in_review_stats()
     assert records[2018] == old_snapshot
     assert asyncio.run(stats.get_year_stats(2018)) is None
     put(datetime.date(2018, 12, 30))
-    stats._generate_and_store_year_in_review_stats(None)
+    stats.generate_and_store_year_in_review_stats()
     assert records[2018]["updates_count"] == 21
+
+
+def test_finalized_2026_favorites_survive_removal(annual_stats, monkeypatch):
+    clock, put, records, writer = annual_stats
+    last = datetime.date(2026, 12, 31)
+    clock.now = datetime.datetime(2027, 1, 2, tzinfo=datetime.UTC)
+    monkeypatch.setattr(stats, "FIRST_STATS_DATE", last)
+    empty_replica = stats.database.get_db
+    monkeypatch.setattr(
+        stats.database,
+        "get_db",
+        lambda role="replica": writer() if role == "writer" else empty_replica(),
+    )
+    monkeypatch.setattr(stats.config.settings, "env", "development")
+    with writer() as db:
+        for model in (models.App, models.FlathubUser, models.UserFavoriteApp):
+            model.__table__.create(db.connection())
+        db.execute(
+            text(
+                "INSERT INTO apps (app_id, type) VALUES ('a','console-application'), ('b','desktop-application'), ('c','console-application')"
+            )
+        )
+        db.execute(text("INSERT INTO flathubuser (id) SELECT generate_series(1,31)"))
+        db.execute(
+            text("""
+            INSERT INTO user_favorite_app (app_id, account, created)
+            SELECT app, account, '2026-12-31'::date FROM (VALUES ('a'), ('b')) apps(app)
+            CROSS JOIN generate_series(1,30) account
+            UNION ALL SELECT 'c', 31, '2026-12-31'::date
+        """)
+        )
+    put(
+        last,
+        {
+            "refs": {
+                "a": {"x86_64": [10, 0]},
+                "b": {"x86_64": [5, 0]},
+                "c": {"x86_64": [20, 0]},
+            }
+        },
+    )
+    stats.generate_and_store_year_in_review_stats()
+    standouts = [
+        {
+            "app_id": "b",
+            "favorite_rank": 1,
+            "download_rank": 3,
+            "favorites_chart_size": 3,
+            "downloads_chart_size": 3,
+        },
+        {
+            "app_id": "a",
+            "favorite_rank": 1,
+            "download_rank": 2,
+            "favorites_chart_size": 3,
+            "downloads_chart_size": 3,
+        },
+    ]
+    assert records[2026]["top_apps"] == [{"app_id": "b", "downloads": 5}]
+    pairs = [{"apps": [{"app_id": "a"}, {"app_id": "b"}], "shared_accounts": 30}]
+    assert records[2026]["favorite_standouts"] == standouts
+    assert records[2026]["favorite_pairs"] == pairs
+    with writer() as db:
+        db.execute(
+            delete(models.UserFavoriteApp).where(models.UserFavoriteApp.app_id == "a")
+        )
+    records[2026]["_snapshot"]["version"] = 2
+    stats.generate_and_store_year_in_review_stats()
+    assert records[2026]["_snapshot"]["version"] == 3
+    assert records[2026]["favorite_standouts"] == standouts
+    assert records[2026]["favorite_pairs"] == pairs
 
 
 def test_missing_day_does_not_create_snapshot(annual_stats):
@@ -96,7 +208,7 @@ def test_missing_day_does_not_create_snapshot(annual_stats):
     clock.now = datetime.datetime(2019, 1, 2, tzinfo=datetime.UTC)
     with writer() as db:
         db.execute(delete(models.StatsDaily))
-    stats._generate_and_store_year_in_review_stats(None)
+    stats.generate_and_store_year_in_review_stats()
     assert records == {}
     assert asyncio.run(stats.get_year_stats(2018)) is None
     assert records == {}
@@ -215,6 +327,9 @@ def test_current_year_retries_old_snapshot_until_upgraded(annual_stats, monkeypa
     fallback = asyncio.run(stats.get_year_stats(2018))
     assert fallback["top_chart_limit"] == 0
     assert fallback["updates_count"] == 4
+    records[2018].pop("_snapshot")
+    with pytest.raises(stats.ReviewSnapshotUnavailable):
+        asyncio.run(stats.get_year_stats(2018))
 
     put(day)
     upgraded = asyncio.run(stats.get_year_stats(2018))
@@ -333,7 +448,7 @@ def test_rebuild_preserves_published_ranks(annual_stats, monkeypatch, on_demand)
         monkeypatch.setattr(stats, "_add_translations_to_year_in_review", translate)
         asyncio.run(stats.get_year_stats(2018))
     else:
-        stats._generate_and_store_year_in_review_stats(None)
+        stats.generate_and_store_year_in_review_stats()
 
     assert stats._year_in_review_is_finalized(records[2018], 2018)
     for chart, entries in charts.items():
@@ -387,7 +502,7 @@ def test_old_top_ten_merges_archived_tools_and_ranks_unpublished_tools(
             }
         },
     )
-    stats._generate_and_store_year_in_review_stats(None)
+    stats.generate_and_store_year_in_review_stats()
 
     assert records[2018]["top_apps"] == [*archived, launcher, emulator, editor]
     assert records[2018]["top_games"] == [game]
@@ -439,7 +554,7 @@ def test_unlisted_game_below_the_original_games_cutoff(
             }
         },
     )
-    stats._generate_and_store_year_in_review_stats(None)
+    stats.generate_and_store_year_in_review_stats()
     assert returning_game not in records[2018]["top_apps"]
     assert records[2018]["top_games"] == [*games, returning_game, fifth_game]
 
@@ -450,7 +565,6 @@ def test_unlisted_game_below_the_original_games_cutoff(
         stats._get_app_downloads_for_year,
         stats._get_country_downloads_for_year,
         stats._get_category_downloads_for_year,
-        stats._get_basic_year_stats,
     ],
 )
 def test_comparison_helpers_reject_missing_daily_data(annual_stats, helper):
@@ -472,7 +586,7 @@ def test_missing_comparison_data_prevents_publication(annual_stats):
     with writer() as db:
         db.execute(delete(models.StatsDaily))
     put(datetime.date(2019, 1, 1))
-    stats._generate_and_store_year_in_review_stats(None)
+    stats.generate_and_store_year_in_review_stats()
     assert records == {}
     assert asyncio.run(stats.get_year_stats(2019)) is None
 
@@ -539,7 +653,7 @@ def test_zero_activity_is_complete_data(annual_stats):
             datetime.date(2018, 12, day),
             {"refs": {}, "updates": 0, "ref_by_country": {}},
         )
-    stats._generate_and_store_year_in_review_stats(None)
+    stats.generate_and_store_year_in_review_stats()
     assert records[2018]["total_downloads"] == 0
     assert records[2018]["updates_count"] == 0
     assert stats._year_in_review_is_finalized(records[2018], 2018)

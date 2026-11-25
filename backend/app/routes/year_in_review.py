@@ -1,15 +1,35 @@
 import datetime
 
-from fastapi import APIRouter, FastAPI, HTTPException, Path, Response
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Path, Response
 from pydantic import BaseModel
+from sqlalchemy.exc import InterfaceError, OperationalError
+from sqlalchemy.exc import TimeoutError as DatabaseTimeoutError
 
 from .. import cache, stats
 from ..database import get_db
 from ..login_info import LoginStatusDep
 
+
+async def _handle_review_storage_errors():
+    try:
+        yield
+    except (
+        stats.ReviewSnapshotUnavailable,
+        OperationalError,
+        InterfaceError,
+        DatabaseTimeoutError,
+    ) as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Year statistics temporarily unavailable",
+            headers={"Retry-After": "60"},
+        ) from exc
+
+
 router = APIRouter(
     prefix="/year-in-review",
     tags=["year-in-review"],
+    dependencies=[Depends(_handle_review_storage_errors, scope="function")],
 )
 
 
@@ -92,7 +112,29 @@ class PlatformStats(BaseModel):
     percentage: float
 
 
+class YearInReviewApp(BaseModel):
+    app_id: str
+    name: str
+    icon: str
+    summary: str
+
+
+class ReviewFavoriteStandout(YearInReviewApp):
+    favorite_rank: int
+    download_rank: int
+    favorites_chart_size: int
+    downloads_chart_size: int
+
+
+class ReviewFavoritePair(BaseModel):
+    apps: tuple[YearInReviewApp, YearInReviewApp]
+    shared_accounts: int
+
+
 class YearInReviewResult(BaseModel):
+    through: datetime.date | None = None
+    favorite_standouts: list[ReviewFavoriteStandout] = []
+    favorite_pairs: list[ReviewFavoritePair] = []
     unavailable_app_ids: list[str] = []
     year: int
     total_downloads: int
@@ -120,12 +162,13 @@ class YearInReviewResult(BaseModel):
 
 # The cache key includes the function name. Bypass entries from older chart versions.
 @cache.cached(ttl=86400)  # 1 day cache
-async def _get_year_in_review_v3_cached(
+async def _get_year_in_review_v4_cached(
     response: Response,
     year: int,
     locale: str = "en",
 ) -> YearInReviewResult:
-    if value := await stats.get_year_stats(year, locale):
+    value = await stats.get_year_stats(year, locale)
+    if value:
         response.status_code = 200
         return YearInReviewResult.model_validate(value)
 
@@ -138,6 +181,7 @@ async def _get_year_in_review_v3_cached(
     responses={
         200: {"description": "Year in review statistics"},
         404: {"description": "Year statistics not available"},
+        503: {"description": "Year statistics temporarily unavailable"},
     },
 )
 @cache.private
@@ -164,12 +208,11 @@ async def get_year_in_review(
     if login.state.logged_in() and login.user:
         with get_db("replica") as db:
             user = db.session.merge(login.user)
-            if "quality-moderation" in user.permissions():
-                is_admin = True
+            is_admin = "quality-moderation" in user.permissions()
 
     if year > max_year and not (is_admin and year == current_year):
         raise HTTPException(
             status_code=422, detail=f"Year must be between 2018 and {max_year}"
         )
 
-    return await _get_year_in_review_v3_cached(response, year, locale)
+    return await _get_year_in_review_v4_cached(response, year, locale)

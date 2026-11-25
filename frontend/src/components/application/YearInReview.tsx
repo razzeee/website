@@ -27,6 +27,9 @@ import type {
   YearInReviewGeographicStats,
   PlatformStats,
   HiddenGem,
+  YearInReviewApp,
+  ReviewFavoritePair,
+  ReviewFavoriteStandout,
   TrendingCategory,
 } from "../../codegen"
 import { MainCategory } from "../../codegen"
@@ -72,6 +75,9 @@ interface YearInReviewProps {
   mostImprovedByCategory?: YearInReviewCategoryGrowthApp[]
   geographicStats?: YearInReviewGeographicStats
   hiddenGems?: HiddenGem[]
+  favoriteStandouts?: ReviewFavoriteStandout[]
+  through?: string | null
+  favoritePairs?: ReviewFavoritePair[]
   trendingCategories?: TrendingCategory[]
   platformStats?: PlatformStats[]
   hasGeographicData?: boolean
@@ -724,6 +730,201 @@ export function CategoryHighlightsSection({
   )
 }
 
+function FavoriteAppName({
+  app,
+  unavailableAppIds,
+  showSummary = false,
+}: {
+  app: YearInReviewApp
+  unavailableAppIds?: string[]
+  showSummary?: boolean
+}) {
+  const content = (
+    <span className="inline-flex max-w-full items-center gap-3">
+      {app.icon && (
+        <span className="size-12 shrink-0">
+          <LogoImage iconUrl={app.icon} appName={app.name} size={64} />
+        </span>
+      )}
+      <span className="min-w-0">
+        <bdi className="block text-xl leading-tight font-bold wrap-anywhere group-hover:underline">
+          {app.name}
+        </bdi>
+        {showSummary && app.summary && (
+          <span className="mt-1 block text-sm leading-snug opacity-80">
+            {app.summary}
+          </span>
+        )}
+      </span>
+    </span>
+  )
+  return unavailableAppIds?.includes(app.app_id) ? (
+    content
+  ) : (
+    <Link
+      href={`/apps/${app.app_id}`}
+      className="group inline-flex max-w-full !text-inherit"
+    >
+      {content}
+    </Link>
+  )
+}
+
+export function FavoriteStories({
+  year,
+  favoriteStandouts = [],
+  favoritePairs = [],
+  unavailableAppIds,
+}: Pick<
+  YearInReviewProps,
+  "year" | "favoriteStandouts" | "favoritePairs" | "unavailableAppIds"
+>) {
+  const t = useTranslations("year-in-review")
+  if (!favoriteStandouts.length && !favoritePairs.length) return null
+  const firstStandout = favoriteStandouts[0]
+  const position = (rank: number, size: number) =>
+    (100 * (rank - 1)) / Math.max(1, size - 1)
+  return (
+    <div className="mb-12 grid gap-8">
+      {firstStandout && (
+        <section className="rounded-[22px] bg-[#f4eff8] p-[clamp(20px,4vw,50px)] text-[#33273e] [--favorite:#80446f] dark:bg-[#302736] dark:text-[#f7eff8] dark:[--favorite:#edabd7] print:bg-white print:text-black">
+          <h2 className="text-[clamp(32px,4.5vw,60px)] leading-none font-[750] tracking-[-.05em]">
+            {t("favorite-standouts")}
+          </h2>
+          <p className="mt-3 max-w-[60ch] leading-snug">
+            {t("favorite-standouts-comparison", {
+              app: firstStandout.name,
+              favorite: firstStandout.favorite_rank,
+              download: firstStandout.download_rank,
+              favoritesSize: firstStandout.favorites_chart_size,
+              downloadsSize: firstStandout.downloads_chart_size,
+            })}
+          </p>
+          <div className="mt-6 flex flex-wrap gap-x-5 gap-y-1 text-sm font-semibold">
+            <span className="inline-flex items-center gap-2">
+              <span
+                className="size-3 rounded-full bg-[var(--favorite)]"
+                aria-hidden="true"
+              />
+              {t("favorite-chart-label", {
+                size: firstStandout.favorites_chart_size,
+              })}
+            </span>
+            <span className="inline-flex items-center gap-2">
+              <span
+                className="size-3 rotate-45 border-2 border-current"
+                aria-hidden="true"
+              />
+              {t("download-chart-label", {
+                size: firstStandout.downloads_chart_size,
+              })}
+            </span>
+          </div>
+          <ul className="mt-2">
+            {favoriteStandouts.map((app) => (
+              <li
+                key={app.app_id}
+                className="grid items-center gap-x-8 border-t border-current/15 py-3 sm:grid-cols-[minmax(180px,1fr)_minmax(0,2fr)]"
+              >
+                <FavoriteAppName
+                  app={app}
+                  unavailableAppIds={unavailableAppIds}
+                  showSummary
+                />
+                <span className="sr-only">
+                  {t("favorite-ranks", {
+                    favorite: app.favorite_rank,
+                    download: app.download_rank,
+                  })}
+                </span>
+                <div
+                  aria-hidden="true"
+                  className="relative mx-6 mt-2 h-[64px] tabular-nums sm:mt-0"
+                >
+                  <div className="absolute inset-x-0 top-1/2 h-px bg-current/20" />
+                  <div
+                    className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-[var(--favorite)]"
+                    style={{
+                      insetInlineStart: `${position(app.favorite_rank, app.favorites_chart_size)}%`,
+                      insetInlineEnd: `${100 - position(app.download_rank, app.downloads_chart_size)}%`,
+                    }}
+                  />
+                  <div
+                    className="absolute top-1/2 grid size-0 place-content-center"
+                    style={{
+                      insetInlineStart: `${position(app.favorite_rank, app.favorites_chart_size)}%`,
+                    }}
+                  >
+                    <span className="relative size-3 rounded-full bg-[var(--favorite)]">
+                      <b className="absolute bottom-full left-1/2 -translate-x-1/2 pb-0.5 text-lg text-[var(--favorite)]">
+                        {t("rank-number", { rank: app.favorite_rank })}
+                      </b>
+                    </span>
+                  </div>
+                  <div
+                    className="absolute top-1/2 grid size-0 place-content-center"
+                    style={{
+                      insetInlineStart: `${position(app.download_rank, app.downloads_chart_size)}%`,
+                    }}
+                  >
+                    <span className="relative size-3">
+                      <span className="absolute inset-0 rotate-45 border-2 border-current bg-[#f4eff8] dark:bg-[#302736]" />
+                      <b className="absolute top-full left-1/2 -translate-x-1/2 pt-1 text-sm">
+                        {t("rank-number", { rank: app.download_rank })}
+                      </b>
+                    </span>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {favoritePairs.length > 0 && (
+        <section>
+          <h2 className="text-3xl font-bold tracking-tight">
+            {t("favorite-pairs")}
+          </h2>
+          <p className="mt-2 max-w-prose">{t("favorite-pairs-description")}</p>
+          <ul className="mt-5 grid gap-6 lg:grid-cols-[repeat(auto-fit,minmax(250px,1fr))]">
+            {favoritePairs.map(({ apps: [first, second], shared_accounts }) => (
+              <li
+                key={`${first.app_id}/${second.app_id}`}
+                className="grid grid-cols-[auto_1fr] items-center gap-x-3 border-t border-[var(--line)] pt-4"
+              >
+                <div className="col-span-2">
+                  <FavoriteAppName
+                    app={first}
+                    unavailableAppIds={unavailableAppIds}
+                  />
+                </div>
+                <span
+                  aria-hidden="true"
+                  className="ms-5 border-s-2 border-dotted border-current/35 ps-4 leading-6 text-[var(--subtle)]"
+                >
+                  +
+                </span>
+                <small className="text-[var(--subtle)]">
+                  {t("favorite-pair-count", { count: shared_accounts })}
+                </small>
+                <div className="col-span-2">
+                  <FavoriteAppName
+                    app={second}
+                    unavailableAppIds={unavailableAppIds}
+                  />
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      <p className="!mb-0 text-sm text-[var(--subtle)]">
+        {t("favorite-cutoff", { year })}
+      </p>
+    </div>
+  )
+}
+
 export function HiddenGemsSection({ hiddenGems }: { hiddenGems: HiddenGem[] }) {
   const t = useTranslations()
   const locale = useLocale()
@@ -966,11 +1167,15 @@ export function YearInReview({
   popularAppsByCategory,
   geographicStats,
   hiddenGems,
+  favoriteStandouts,
+  through,
+  favoritePairs,
   trendingCategories,
   platformStats,
   hasGeographicData = true,
 }: YearInReviewProps) {
   const t = useTranslations()
+  const locale = useLocale()
 
   const seeds = useMemo(() => yearInReviewSpiral(newAppsCount), [newAppsCount])
   const arrivals = newcomersByCategory
@@ -1091,9 +1296,24 @@ export function YearInReview({
             totalApps={totalApps}
             updatesCount={updatesCount}
           />
+          {through && through !== `${year}-12-31` && (
+            <p className="mt-2 text-sm text-[var(--subtle)]">
+              {t("year-in-review.preview-through", {
+                date: new Intl.DateTimeFormat(locale, {
+                  dateStyle: "long",
+                  timeZone: "UTC",
+                }).format(new Date(through)),
+              })}
+            </p>
+          )}
         </section>
 
-        {/* Popular Apps Section */}
+        <FavoriteStories
+          year={year}
+          favoriteStandouts={favoriteStandouts}
+          favoritePairs={favoritePairs}
+          unavailableAppIds={unavailableAppIds}
+        />
         <section className="mb-24">
           <TopAppsSection
             year={year}

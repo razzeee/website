@@ -5069,18 +5069,51 @@ class YearInReviewStats(Base):
         return db.query(cls).filter(cls.year == year).first()
 
     @classmethod
-    def set_for_year(cls, db, year: int, data: JSONObject) -> "YearInReviewStats":
-        record = cls.get_for_year(db, year)
-
-        if record:
-            record.data = data
-            record.computed_at = func.now()
-        else:
-            record = cls(year=year, data=data)
-            db.add(record)
-
+    def set_for_year(
+        cls, db, year: int, data: JSONObject, previous: JSONObject | None
+    ) -> JSONObject:
+        insert = pg_insert(cls).values(year=year, data=data)
+        saved = cls.data["_snapshot"]
+        incoming = insert.excluded.data["_snapshot"]
+        saved_through = func.coalesce(saved["through"].as_string(), "")
+        end = f"{year}-12-31"
+        # A schema upgrade may rebuild download charts, but removed saves cannot
+        # be reconstructed. Keep the published favorites even on a racing upgrade.
+        upgraded_final = insert.excluded.data.op("||")(
+            func.jsonb_build_object(
+                "favorite_standouts",
+                func.coalesce(cls.data["favorite_standouts"], text("'[]'::jsonb")),
+                "favorite_pairs",
+                func.coalesce(cls.data["favorite_pairs"], text("'[]'::jsonb")),
+            )
+        )
+        statement = insert.on_conflict_do_update(
+            index_elements=[cls.year],
+            set_={
+                "data": case(
+                    (saved_through == end, upgraded_final), else_=insert.excluded.data
+                ),
+                "computed_at": func.now(),
+            },
+            where=and_(
+                saved_through <= incoming["through"].as_string(),
+                or_(saved_through != end, cls.data == previous),
+                or_(
+                    saved["version"].as_integer().is_(None),
+                    saved["version"].as_integer() < incoming["version"].as_integer(),
+                    and_(
+                        saved["version"].as_integer()
+                        == incoming["version"].as_integer(),
+                        saved_through < end,
+                    ),
+                ),
+            ),
+        ).returning(cls.data)
+        winner = db.execute(statement).scalar_one_or_none()
+        if winner is None:
+            winner = db.query(cls.data).filter(cls.year == year).one()[0]
         db.commit()
-        return record
+        return winner
 
 
 class AuditEventType(enum.StrEnum):

@@ -5,6 +5,7 @@ import { createTranslator, NextIntlClientProvider } from "next-intl"
 import { expect, test, vi } from "vitest"
 import {
   CategoryHighlightsSection,
+  FavoriteStories,
   PlatformDiversitySection,
   TopAppsSection,
   TrendingCategoriesSection,
@@ -20,6 +21,42 @@ vi.mock("src/i18n/navigation", () => ({
     <a href={href}>{children}</a>
   ),
 }))
+
+test("shows the two favorite stories and only links available apps", () => {
+  const first = {
+    app_id: "test.Editor",
+    name: "Editor",
+    icon: "",
+    summary: "Edit images",
+  }
+  const second = { ...first, app_id: "test.Brushes", name: "Brushes" }
+  const html = renderToStaticMarkup(
+    <NextIntlClientProvider locale="en" messages={common} timeZone="UTC">
+      <FavoriteStories
+        year={2026}
+        favoriteStandouts={[
+          {
+            ...first,
+            favorite_rank: 2,
+            download_rank: 2,
+            favorites_chart_size: 100,
+            downloads_chart_size: 2,
+          },
+        ]}
+        favoritePairs={[{ apps: [first, second], shared_accounts: 32 }]}
+        unavailableAppIds={[second.app_id]}
+      />
+    </NextIntlClientProvider>,
+  )
+  expect(html).toContain("#2 in favorites, #2 in downloads")
+  expect(html).toContain(
+    "Editor ranked #2 of 100 by favorites and #2 of 2 by downloads.",
+  )
+  expect(html).toContain("32 accounts saved both")
+  expect(html).toContain('href="/apps/test.Editor"')
+  expect(html).toContain("Brushes")
+  expect(html).not.toContain('href="/apps/test.Brushes"')
+})
 
 test.each(["en", "de", "tr", "ar", "ja"])(
   "renders localized counts and percentages for %s",
@@ -238,6 +275,7 @@ test("a year without arrivals reports zero without drawing an empty spiral", () 
     <NextIntlClientProvider locale="en" messages={common} timeZone="UTC">
       <YearInReview
         year={2025}
+        through="2025-12-18"
         totalDownloads={200}
         newAppsCount={0}
         totalApps={4}
@@ -251,4 +289,5 @@ test("a year without arrivals reports zero without drawing an empty spiral", () 
   )
   expect(html).toContain("0 apps joined Flathub in 2025.")
   expect(html).not.toContain("review-spectrum-")
+  expect(html).toContain("Preliminary results through December 18, 2025.")
 })

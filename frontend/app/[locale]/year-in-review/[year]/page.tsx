@@ -1,4 +1,5 @@
 import { Metadata } from "next"
+import { isAxiosError } from "axios"
 import { headers } from "next/headers"
 import { notFound } from "next/navigation"
 import { getTranslations } from "next-intl/server"
@@ -106,6 +107,9 @@ export default async function YearInReviewPage({
     yearInReviewData = yearInReviewResponse.data
     previous = priorResponse?.data
   } catch (error) {
+    if (isAxiosError(error) && error.response?.status === 503) {
+      throw new Error("Year statistics temporarily unavailable")
+    }
     notFound()
   }
 
@@ -184,6 +188,9 @@ export default async function YearInReviewPage({
           mostImprovedByCategory={yearInReviewData.most_improved_by_category}
           geographicStats={yearInReviewData.geographic_stats}
           hiddenGems={yearInReviewData.hidden_gems}
+          favoriteStandouts={yearInReviewData.favorite_standouts}
+          through={yearInReviewData.through}
+          favoritePairs={yearInReviewData.favorite_pairs}
           platformStats={yearInReviewData.platform_stats}
           trendingCategories={yearInReviewData.trending_categories}
           hasGeographicData={hasGeographicData}

@@ -6,13 +6,19 @@
  */
 import type { HiddenGem } from "./hiddenGem"
 import type { PlatformStats } from "./platformStats"
+import type { ReviewFavoritePair } from "./reviewFavoritePair"
+import type { ReviewFavoriteStandout } from "./reviewFavoriteStandout"
 import type { TrendingCategory } from "./trendingCategory"
 import type { YearInReviewCategoryApp } from "./yearInReviewCategoryApp"
 import type { YearInReviewCategoryGrowthApp } from "./yearInReviewCategoryGrowthApp"
 import type { YearInReviewMostPopularApp } from "./yearInReviewMostPopularApp"
 import type { YearInReviewResultGeographicStats } from "./yearInReviewResultGeographicStats"
+import type { YearInReviewResultThrough } from "./yearInReviewResultThrough"
 
 export interface YearInReviewResult {
+  through?: YearInReviewResultThrough
+  favorite_standouts?: ReviewFavoriteStandout[]
+  favorite_pairs?: ReviewFavoritePair[]
   unavailable_app_ids?: string[]
   year: number
   total_downloads: number

@@ -47,7 +47,9 @@ def classify_app(monkeypatch, stats_database):
             datetime.datetime(2018, 5, 1, tzinfo=datetime.UTC),
         )
         monkeypatch.setattr(stats.database, "get_db", app_db)
-        monkeypatch.setattr(stats.database, "get_all_appids_for_frontend", set)
+        monkeypatch.setattr(
+            stats.database, "get_all_appids_for_frontend", lambda role: set()
+        )
         monkeypatch.setattr(stats.config.settings, "env", "development")
 
         result = asyncio.run(stats._build_year_in_review_base(2018))

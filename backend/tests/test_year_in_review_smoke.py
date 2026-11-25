@@ -44,11 +44,13 @@ def complete_daily_stats(monkeypatch, stats_database):
             fetched,
         )
     monkeypatch.setattr(stats, "_load_year_in_review_base", lambda year: None)
-    monkeypatch.setattr(stats, "_save_year_in_review_base", lambda year, data: None)
+    monkeypatch.setattr(
+        stats, "_save_year_in_review_base", lambda year, data, previous: data
+    )
     monkeypatch.setattr(
         year_in_review,
-        "_get_year_in_review_v3_cached",
-        year_in_review._get_year_in_review_v3_cached.__wrapped__,
+        "_get_year_in_review_v4_cached",
+        year_in_review._get_year_in_review_v4_cached.__wrapped__,
     )
     monkeypatch.setattr(
         stats.utils,

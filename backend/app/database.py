@@ -168,10 +168,10 @@ def bulk_set_app_stats(stats_dict: dict[str, models.AppStatsData]) -> None:
         models.AppStats.bulk_set_stats(sqldb, stats_dict)
 
 
-def get_all_appids_for_frontend():
+def get_all_appids_for_frontend(db_type: Literal["writer", "replica"] = "replica"):
     appids = []
 
-    with get_db() as sqldb:
+    with get_db(db_type) as sqldb:
         apps = (
             sqldb.query(models.App.app_id, models.App.type)
             .filter(
@@ -187,15 +187,17 @@ def get_all_appids_for_frontend():
         if (
             app.type == "desktop-application"
             or app.type == "console-application"
-            and is_appid_for_frontend(app.app_id)
+            and is_appid_for_frontend(app.app_id, db_type)
         ):
             appids.append(app.app_id)
 
     return appids
 
 
-def is_appid_for_frontend(app_id: str):
-    with get_db() as sqldb:
+def is_appid_for_frontend(
+    app_id: str, db_type: Literal["writer", "replica"] = "replica"
+):
+    with get_db(db_type) as sqldb:
         app = sqldb.query(models.App).filter(models.App.app_id == app_id).first()
 
         if not app:

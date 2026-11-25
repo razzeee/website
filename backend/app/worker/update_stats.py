@@ -8,3 +8,4 @@ from ..database import get_db
 def update_stats():
     with get_db("writer") as db:
         stats.update(db)
+    stats.generate_and_store_year_in_review_stats()
