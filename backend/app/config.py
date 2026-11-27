@@ -7,6 +7,7 @@ from pydantic_settings import BaseSettings
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 logger = logging.getLogger(__name__)
+DEFAULT_SESSION_SECRET_KEY = "change-me-for-production"
 
 
 class Settings(BaseSettings):
@@ -35,7 +36,7 @@ class Settings(BaseSettings):
     appstream_repos: str | None = None
     datadir: str = os.path.join(ROOT_DIR, "data")
     stats_baseurl: str = "https://hub.flathub.org/stats"
-    session_secret_key: str = "change-me-for-production"
+    session_secret_key: str = DEFAULT_SESSION_SECRET_KEY
     repo_url: str = "https://dl.flathub.org/repo"
     beta_repo_url: str = "https://dl.flathub.org/beta-repo"
 
@@ -122,12 +123,20 @@ class Settings(BaseSettings):
     force_recompute_stats: bool = False
     audit_log_retention_days: int = 90
 
-    def warn_if_signing_keys_invalid(self):
+    def validate_signing_keys(self):
         if self.env in {"development", "test"}:
             return
+        session_key = self.session_secret_key.encode()
+        if (
+            self.session_secret_key.strip() in {"", DEFAULT_SESSION_SECRET_KEY}
+            or len(session_key) < 32
+        ):
+            raise RuntimeError(
+                "Set SESSION_SECRET_KEY to a non-placeholder secret of at least 32 bytes"
+            )
         try:
             keys = [
-                self.session_secret_key.encode(),
+                session_key,
                 base64.b64decode(self.update_token_secret, validate=True),
                 base64.b64decode(self.flat_manager_secret, validate=True),
             ]

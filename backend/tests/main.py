@@ -97,6 +97,18 @@ def client(monkeypatch):
         yield client_
 
 
+def test_startup_rejects_invalid_session_key(monkeypatch):
+    from app import config, main
+
+    monkeypatch.setattr(config.settings, "env", "production")
+    monkeypatch.setattr(config.settings, "session_secret_key", "too-short")
+    with (
+        pytest.raises(RuntimeError, match="SESSION_SECRET_KEY"),
+        TestClient(main.router),
+    ):
+        pytest.fail("startup accepted invalid session key")
+
+
 def test_update(client, monkeypatch):
     from app import config
 

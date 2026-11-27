@@ -69,7 +69,7 @@ if config.settings.sentry_dsn:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    config.settings.warn_if_signing_keys_invalid()
+    config.settings.validate_signing_keys()
     search.configure_indexes()
     await database.get_redis()
     yield
