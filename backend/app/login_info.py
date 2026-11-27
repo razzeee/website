@@ -1,14 +1,26 @@
+import secrets
 import time
+from collections.abc import Generator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Annotated, cast
 
+import redis
 from fastapi import Depends, HTTPException, Request
 
-from . import models, utils
+from . import config, models, utils
 from .database import get_db
 
 REAUTH_FRESHNESS_SECONDS = 300
+SESSION_MAX_AGE = 86400
+_session_store = redis.Redis(
+    host=config.settings.redis_state_host,
+    port=config.settings.redis_state_port,
+    db=config.settings.redis_state_db,
+    socket_connect_timeout=0.2,
+    socket_timeout=0.2,
+)
 
 
 def mark_recently_authenticated(request: Request) -> None:
@@ -59,9 +71,51 @@ class LoginInformation[U: models.FlathubUser | None = models.FlathubUser | None]
 LoggedInInformation = LoginInformation[models.FlathubUser]
 
 
-def set_authenticated_session(
-    request: Request, user_id: int, method: str, passkey_id: int | None = None
-) -> None:
+@contextmanager
+def _session_key(session_id: str) -> Generator[str]:
+    try:
+        yield f"auth:session:{session_id}"
+    except redis.RedisError as exc:
+        raise HTTPException(503, "session_store_unavailable") from exc
+
+
+def revoke_authenticated_session(request: Request) -> bool:
+    session_id = request.session.get("session-id")
+    if session_id is not None:
+        with _session_key(session_id) as key:
+            revoked = _session_store.delete(key)
+        del request.session["session-id"]
+        return bool(revoked)
+    return False
+
+
+@contextmanager
+def establish_authenticated_session(
+    request: Request,
+    user_id: int,
+    method: str,
+    passkey_id: int | None = None,
+    *,
+    reset_session: bool = False,
+) -> Generator[None]:
+    """Reserve the login before committing its transaction; publish the cookie after."""
+    # Linking OAuth changes the method of an existing login. Keep its revocation
+    # record so logout (including a concurrent logout) still covers both cookies.
+    session_id = request.session.get("session-id")
+    if request.session.get("user-id") != user_id:
+        revoke_authenticated_session(request)
+        session_id = None
+    if session_id is None:
+        session_id = secrets.token_urlsafe(32)
+        with _session_key(session_id) as key:
+            _session_store.set(key, user_id, ex=SESSION_MAX_AGE)
+    yield
+    if reset_session:
+        pending_oidc = request.session.get("oidc_authorize_params")
+        request.session.clear()
+        if isinstance(pending_oidc, dict):
+            request.session["oidc_authorize_params"] = pending_oidc
+    request.session["session-id"] = session_id
     request.session["user-id"] = user_id
     request.session["auth-method"] = method
     mark_recently_authenticated(request)
@@ -90,21 +144,13 @@ def _passkey_session_user(request: Request, user_id) -> models.FlathubUser | Non
     return None
 
 
-def _email_session_revoked(request: Request, db, user: models.FlathubUser) -> bool:
-    from .email_login import has_oauth_account
-
-    auth_method = request.session.get("auth-method")
-    if auth_method is None:
-        # Sessions created before auth-method was recorded; tag them once so
-        # OAuth sessions stop paying for the email account lookup.
-        if models.EmailAccount.by_user(db, user) is None or has_oauth_account(db, user):
-            request.session["auth-method"] = "oauth"
-            return False
-        request.session["auth-method"] = auth_method = "email"
-    if auth_method != "email":
+def _session_is_active(request: Request, user_id: int) -> bool:
+    session_id = request.session.get("session-id")
+    if not isinstance(session_id, str):
         return False
-    account = models.EmailAccount.by_user(db, user)
-    return account is None or account.disabled_at is not None
+    with _session_key(session_id) as key:
+        owner = _session_store.get(key)
+    return owner == str(user_id).encode()
 
 
 def login_state(request: Request) -> LoginInformation:
@@ -129,17 +175,22 @@ def login_state(request: Request) -> LoginInformation:
 
     user_id = request.session.get("user-id", None)
     user = None
-    if user_id is not None and request.session.get("auth-method") == "passkey":
+    if user_id is not None and not _session_is_active(request, user_id):
+        request.session.clear()
+    elif user_id is not None and request.session.get("auth-method") == "passkey":
         user = _passkey_session_user(request, user_id)
     elif user_id is not None:
         with get_db("replica") as db:
             user = db.session.get(models.FlathubUser, user_id)
             if user is not None and user.login_disabled:
                 user = None
+                revoke_authenticated_session(request)
                 del request.session["user-id"]
-            elif user is not None and _email_session_revoked(request, db, user):
-                user = None
-                request.session.clear()
+            elif user is not None and request.session.get("auth-method") == "email":
+                account = models.EmailAccount.by_user(db, user)
+                if account is None or account.disabled_at is not None:
+                    user = None
+                    request.session.clear()
     if user is not None:
         state = LoginState.LOGGED_IN
     active_flow = request.session.get("active-login-flow", None)

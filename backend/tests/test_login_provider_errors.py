@@ -110,6 +110,7 @@ def test_gitlab_provider_failure_returns_actionable_error(
 
 
 @pytest.mark.parametrize("existing_method", ["email", "github", None])
+@pytest.mark.usefixtures("session_store")
 def test_oauth_signup_checks_existing_accounts_by_normalized_email(
     monkeypatch,
     existing_method,

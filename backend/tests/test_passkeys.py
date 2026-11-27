@@ -185,6 +185,13 @@ def env(isolated_email_db, monkeypatch):
     @app.post("/seed-session")
     def seed_session(request: Request, session: dict[str, JSONValue]):
         request.session.clear()
+        if "user-id" in session:
+            with login_info.establish_authenticated_session(
+                request, session["user-id"], session["auth-method"]
+            ):
+                pass
+            request.session.pop("auth-time")
+            session.pop("session-id", None)
         request.session.update(session)
 
     clients = []
@@ -892,6 +899,43 @@ def test_authentication_returns_only_safe_destinations(env, requested, expected)
     assert not {"auth-time", "passkey-id", "passkey-flow", "user-id"} & set(
         session_of(client)
     )
+
+
+def test_logout_revokes_only_the_current_login(env):
+    user, authenticator = enrolled_user(env)
+    first, _ = sign_in(env, authenticator, user.id)
+    second, _ = sign_in(env, authenticator, user.id)
+    copied_cookie = env.client()
+    copied_cookie.cookies.update(first.cookies)
+    assert copied_cookie.get("/auth/passkeys").status_code == 200
+
+    assert first.post("/auth/logout").status_code == 200
+    assert copied_cookie.get("/auth/passkeys").status_code == 401
+    assert second.get("/auth/passkeys").status_code == 200
+
+
+def test_expired_server_session_rejects_still_signed_cookie(env):
+    user, authenticator = enrolled_user(env)
+    client, _ = sign_in(env, authenticator, user.id)
+    key = f"auth:session:{session_of(client)['session-id']}"
+    assert 0 < login_info._session_store.ttl(key) <= login_info.SESSION_MAX_AGE
+    login_info._session_store.expire(key, 60)
+    response = client.get("/auth/passkeys")
+    assert response.status_code == 200
+    assert "set-cookie" not in response.headers
+    assert 0 < login_info._session_store.ttl(key) <= 60
+    login_info._session_store.expireat(key, 1)
+    assert client.get("/auth/passkeys").status_code == 401
+
+
+def test_logout_with_disabled_login_method_revokes_presented_session(env):
+    user = add_user(env.writer, "email", None)
+    client = env.fresh(user.id)
+    key = f"auth:session:{session_of(client)['session-id']}"
+    with env.writer() as db:
+        models.EmailAccount.by_user(db, user).disabled_at = logins.utils.utcnow()
+    assert client.post("/auth/logout").status_code == 200
+    assert not login_info._session_store.exists(key)
 
 
 def test_passkey_login_resumes_pending_oidc_authorization(env, monkeypatch):

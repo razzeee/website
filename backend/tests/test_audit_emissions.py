@@ -359,8 +359,9 @@ def test_already_logged_in_emits_distinct_event(monkeypatch, recorded_calls):
     assert recorded_calls[0]["user_id"] == 777
 
 
+@pytest.mark.parametrize("commit_fails", [False, True])
 def test_email_upgrade_runs_postlogin_and_sends_security_email(
-    monkeypatch, recorded_calls
+    monkeypatch, recorded_calls, session_store, commit_fails
 ):
     from datetime import UTC, datetime
 
@@ -371,9 +372,14 @@ def test_email_upgrade_runs_postlogin_and_sends_security_email(
     account = SimpleNamespace(user=42)
     commits = []
 
+    def commit():
+        if commit_fails:
+            raise RuntimeError("commit failed")
+        commits.append(True)
+
     @contextmanager
     def fake_get_db(db_type="replica"):
-        yield SimpleNamespace(commit=lambda: commits.append(True))
+        yield SimpleNamespace(commit=commit)
 
     @contextmanager
     def fake_oauth_client(method):
@@ -402,21 +408,36 @@ def test_email_upgrade_runs_postlogin_and_sends_security_email(
             "created": datetime.now(UTC).timestamp(),
         },
         "user-id": 42,
+        "session-id": "original",
+        "auth-method": "email",
         "oidc_authorize_params": {"client_id": "test-client"},
         "obsolete": "remove",
     }
-    result = logins.continue_oauth_flow(
-        request,
-        LoginInformation(state=LoginState.LOGGED_IN, user=user, method="github"),
-        logins.OauthLoginResponseSuccess(code="code", state="matching-state"),
-        "github",
-        lambda tokens: logins.ProviderInfo(
-            id="provider-123", login="new-login", email="new@example.com"
-        ),
-        SimpleNamespace(by_provider_id=lambda db, provider_id: None),
-        lambda tokens, connected_account: refreshed.append(connected_account),
-    )
 
+    def upgrade():
+        return logins.continue_oauth_flow(
+            request,
+            LoginInformation(state=LoginState.LOGGED_IN, user=user, method="github"),
+            logins.OauthLoginResponseSuccess(code="code", state="matching-state"),
+            "github",
+            lambda tokens: logins.ProviderInfo(
+                id="provider-123", login="new-login", email="new@example.com"
+            ),
+            SimpleNamespace(by_provider_id=lambda db, provider_id: None),
+            lambda tokens, connected_account: refreshed.append(connected_account),
+        )
+
+    if commit_fails:
+        with pytest.raises(RuntimeError, match="commit failed"):
+            upgrade()
+        assert request.session["auth-method"] == "email"
+        assert request.session["session-id"] == "original"
+        assert request.session["oidc_authorize_params"] == {"client_id": "test-client"}
+        assert not session_store.mock_calls
+        return
+    result = upgrade()
+    assert not session_store.mock_calls
+    assert request.session["session-id"] == "original"
     assert result == {"status": "ok", "result": "logged_in"}
     assert request.session["oidc_authorize_params"] == {"client_id": "test-client"}
     assert "obsolete" not in request.session
@@ -570,6 +591,7 @@ def test_disabled_returning_oauth_user_is_rejected_before_side_effects(
     assert recorded_calls[0]["details"] == expected_details
 
 
+@pytest.mark.usefixtures("session_store")
 def test_active_returning_oauth_user_keeps_success_path(monkeypatch, recorded_calls):
     from app import models
 

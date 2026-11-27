@@ -1,11 +1,21 @@
 import os
 import sys
 from contextlib import contextmanager
+from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
+@pytest.fixture
+def session_store(monkeypatch):
+    from app import login_info
+
+    store = MagicMock()
+    monkeypatch.setattr(login_info, "_session_store", store)
+    return store
 
 
 @pytest.fixture

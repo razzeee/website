@@ -28,7 +28,13 @@ from app.email_login import (
     oauth_email_exists,
     require_oauth_upgrade,
 )
-from app.login_info import LoginInformation, LoginState, LoginStatusDep, login_state
+from app.login_info import (
+    LoginInformation,
+    LoginState,
+    LoginStatusDep,
+    establish_authenticated_session,
+    login_state,
+)
 from app.utils import utcnow
 
 
@@ -65,6 +71,28 @@ def request_for(session):
             "session": session,
         }
     )
+
+
+def test_email_link_remains_retryable_when_session_store_is_unavailable(
+    isolated_email_db,
+):
+    writer, _ = isolated_email_db
+    token = issue(writer, f"retry-{uuid4().hex}@example.com")
+    body = logins.EmailConfirmRequest(token=token)
+    request = request_for({})
+    login = LoginInformation(LoginState.LOGGED_OUT, None, None)
+    with (
+        patch("app.login_info._session_store.set", side_effect=redis.ConnectionError),
+        pytest.raises(HTTPException) as error,
+    ):
+        logins.confirm_email_login(body, request, login)
+    assert error.value.status_code == 503
+    assert request.session == {}
+
+    with patch.object(logins.audit_log, "enqueue_audit_log"):
+        result = logins.confirm_email_login(body, request, login)
+    assert result.status == "ok"
+    assert login_state(request).user.id == request.session["user-id"]
 
 
 def test_explicit_signup_consumes_all_links_and_sets_cookie(
@@ -834,6 +862,23 @@ def test_oauth_reauth_start_requires_own_linked_account(
     assert request.session["auth-method"] == "passkey"
     assert request.session["passkey-id"] == 42
     assert request.session["auth-time"] == 1
+
+
+def test_switching_oauth_provider_revokes_abandoned_login(
+    isolated_email_db, reauth_oauth_client
+):
+    writer, _engine = isolated_email_db
+    user = add_user(writer, "github", None)
+    request = request_for({"active-login-flow": "github"})
+    with establish_authenticated_session(request, user.id, "github"):
+        pass
+    copied = request_for(request.session.copy())
+    assert login_state(copied).state == LoginState.LOGGING_IN_AGAIN
+
+    result = logins.start_gitlab_flow(request, login_state(request))
+    assert result["state"] == "ok"
+    assert "user-id" not in request.session
+    assert login_state(copied).state == LoginState.LOGGED_OUT
 
 
 @pytest.mark.parametrize("reauth", [False, True])

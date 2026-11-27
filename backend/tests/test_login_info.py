@@ -8,7 +8,7 @@ from starlette.requests import Request
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(ROOT_DIR)
 
-from app.login_info import LoginState, login_state, set_authenticated_session
+from app.login_info import LoginState, establish_authenticated_session, login_state
 from app.models import FlathubUser, PasskeyCredential
 
 
@@ -35,7 +35,8 @@ def test_login_state_handles_missing_legacy_intermediate_key():
     assert info.method == "github"
 
 
-def test_login_state_clears_banned_user_session():
+def test_login_state_clears_banned_user_session(session_store):
+    session_store.get.return_value = b"42"
     request = Request(
         {
             "type": "http",
@@ -48,7 +49,7 @@ def test_login_state_clears_banned_user_session():
             "headers": [],
             "client": ("127.0.0.1", 12345),
             "server": ("testserver", 80),
-            "session": {"user-id": 42},
+            "session": {"user-id": 42, "session-id": "session"},
         }
     )
     user = FlathubUser(id=42, deleted=False, banned=True)
@@ -91,8 +92,11 @@ def _replica_with_user(user):
     return db_context
 
 
-def test_login_state_skips_email_checks_for_oauth_session():
-    request = _session_request({"user-id": 42, "auth-method": "github"})
+def test_login_state_skips_email_checks_for_oauth_session(session_store):
+    session_store.get.return_value = b"42"
+    request = _session_request(
+        {"user-id": 42, "session-id": "s", "auth-method": "github"}
+    )
     user = FlathubUser(id=42, deleted=False, banned=False)
 
     with (
@@ -107,22 +111,20 @@ def test_login_state_skips_email_checks_for_oauth_session():
     allowed.assert_not_called()
 
 
-def test_login_state_tags_legacy_oauth_session():
-    request = _session_request({"user-id": 42})
-    user = FlathubUser(id=42, deleted=False, banned=False)
-
-    with (
-        patch("app.login_info.get_db", return_value=_replica_with_user(user)),
-        patch("app.models.EmailAccount.by_user", return_value=None),
-    ):
-        info = login_state(request)
-
-    assert info.state == LoginState.LOGGED_IN
-    assert request.session["auth-method"] == "oauth"
+@pytest.mark.parametrize(
+    "fields", [{}, {"auth-method": "email"}, {"auth-method": "passkey"}]
+)
+def test_login_state_rejects_legacy_authenticated_session(fields):
+    request = _session_request({"user-id": 42, **fields})
+    assert login_state(request).state == LoginState.LOGGED_OUT
+    assert request.session == {}
 
 
-def test_login_state_revokes_disabled_email_session():
-    request = _session_request({"user-id": 42, "auth-method": "email"})
+def test_login_state_revokes_disabled_email_session(session_store):
+    session_store.get.return_value = b"42"
+    request = _session_request(
+        {"user-id": 42, "session-id": "s", "auth-method": "email"}
+    )
     user = FlathubUser(id=42, deleted=False, banned=False)
 
     with (
@@ -160,9 +162,15 @@ def _writer_with(user, credential):
     ],
 )
 def test_login_state_binds_passkey_session_to_credential(
-    passkey_id, owner, banned, logged_in
+    session_store, passkey_id, owner, banned, logged_in
 ):
-    session = {"user-id": 42, "auth-method": "passkey", "auth-time": 1}
+    session_store.get.return_value = b"42"
+    session = {
+        "user-id": 42,
+        "session-id": "s",
+        "auth-method": "passkey",
+        "auth-time": 1,
+    }
     if passkey_id is not None:
         session["passkey-id"] = passkey_id
     request = _session_request(session)
@@ -180,17 +188,24 @@ def test_login_state_binds_passkey_session_to_credential(
         get_db.assert_called_once_with("writer")
 
 
-def test_set_authenticated_session_replaces_passkey_binding():
+def test_establish_authenticated_session_replaces_passkey_binding(session_store):
     request = _session_request(
         {"passkey-id": 7, "passkey-flow": "nonce", "oidc_authorize_params": {}}
     )
 
-    set_authenticated_session(request, 42, "passkey", 9)
+    with establish_authenticated_session(request, 42, "passkey", 9):
+        assert "session-id" not in request.session
+    previous = request.session["session-id"]
     assert request.session["passkey-id"] == 9
     assert "passkey-flow" not in request.session
 
-    with patch("app.login_info.time.time", return_value=1000.5):
-        set_authenticated_session(request, 42, "email")
+    with (
+        patch("app.login_info.time.time", return_value=1000.5),
+        establish_authenticated_session(request, 42, "email"),
+    ):
+        assert request.session["session-id"] == previous
+    session_store.delete.assert_not_called()
+    assert request.session.pop("session-id") == previous
     assert request.session == {
         "user-id": 42,
         "auth-method": "email",

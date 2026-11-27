@@ -79,13 +79,14 @@ from .email_login import (
 )
 from .emails import EmailCategory
 from .login_info import (
+    SESSION_MAX_AGE,
     LoggedInDep,
     LoginInformation,
-    LoginState,
     LoginStatusDep,
+    establish_authenticated_session,
     mark_recently_authenticated,
     require_recent_authentication,
-    set_authenticated_session,
+    revoke_authenticated_session,
 )
 from .routes.upload_tokens import revoke_user_upload_tokens
 from .types import JSONValue
@@ -496,7 +497,11 @@ def confirm_email_login(
         )
         user_id = user.id
         return_to = challenge.return_to
-        db.commit()
+        if login.user is None:
+            with establish_authenticated_session(request, user_id, "email"):
+                db.commit()
+        else:
+            db.commit()
     if login.user is not None:
         mark_recently_authenticated(request)
         audit_log.enqueue_audit_log(
@@ -508,7 +513,6 @@ def confirm_email_login(
         )
         return EmailConfirmResult(return_to=return_to)
     _clear_oauth_session(request)
-    set_authenticated_session(request, user_id, "email")
     pending_oidc = request.session.get("oidc_authorize_params")
     if isinstance(pending_oidc, dict):
         pending_oidc["_login_flow_started"] = True
@@ -681,6 +685,7 @@ def start_oauth_flow(
             pass
         else:
             if not reauth and not request.session.get("reauth-flow"):
+                revoke_authenticated_session(request)
                 request.session.pop("user-id", None)
             _clear_oauth_session(request)
     if not reauth:
@@ -1309,11 +1314,6 @@ def continue_oauth_flow(
                 upgraded = _upgrade_email_user(
                     db, user, method, provider_data, login_result, account_model
                 )
-                if upgraded is not None:
-                    pending_oidc = request.session.get("oidc_authorize_params")
-                    request.session.clear()
-                    if isinstance(pending_oidc, dict):
-                        request.session["oidc_authorize_params"] = pending_oidc
                 if upgraded is None:
                     db.commit()
                     _log_login_failure(
@@ -1404,8 +1404,8 @@ def continue_oauth_flow(
             db.add(account)
 
         # The session is now ready
-        db.commit()
         if reauth:
+            db.commit()
             mark_recently_authenticated(request)
             audit_log.enqueue_audit_log(
                 request,
@@ -1415,7 +1415,10 @@ def continue_oauth_flow(
                 details={"reauth": True, "login": provider_data.login},
             )
             return {"status": "ok", "result": "reauthenticated"}
-        set_authenticated_session(request, account.user, method)
+        with establish_authenticated_session(
+            request, account.user, method, reset_session=upgraded is not None
+        ):
+            db.commit()
 
         audit_log.enqueue_audit_log(
             request,
@@ -1646,38 +1649,23 @@ def do_refresh_dev_flatpaks(
     tags=["auth"],
     responses={
         200: {"description": "Logout successful"},
-        500: {"description": "Session error"},
+        503: {"description": "Session store unavailable"},
     },
 )
-def do_logout(request: Request, login: LoginStatusDep):
-    """
-    Clear the login state. This will discard tokens which access socials,
-    and will clear the session cookie so that the user is not logged in.
-    """
-    try:
-        request.session.pop("passkey-flow", None)
-        if login.state == LoginState.LOGGED_OUT:
-            return {}
-
-        # Clear the login ID
-        if "user-id" in request.session:
-            del request.session["user-id"]
-        request.session.pop("auth-method", None)
-        request.session.pop("auth-time", None)
-        request.session.pop("passkey-id", None)
-
-        if login.state.logging_in():
-            # Also clear any pending login-flow from the session
-            _clear_oauth_session(request)
-
-    except KeyError as e:
-        raise HTTPException(status_code=500, detail=f"Session error: {e!s}")
-
-    audit_log.enqueue_audit_log(
-        request,
-        login.user.id if login.user else None,
-        models.AuditEventType.LOGOUT,
-    )
+def do_logout(request: Request):
+    """Revoke the login even if the cookie's original login method is disabled."""
+    revoked = revoke_authenticated_session(request)
+    user_id = request.session.pop("user-id", None)
+    pending_flow = request.session.get("active-login-flow") is not None
+    _clear_oauth_session(request)
+    request.session.pop("passkey-flow", None)
+    request.session.pop("auth-method", None)
+    request.session.pop("auth-time", None)
+    request.session.pop("passkey-id", None)
+    if revoked or pending_flow:
+        audit_log.enqueue_audit_log(
+            request, user_id if revoked else None, models.AuditEventType.LOGOUT
+        )
     return {}
 
 
@@ -2262,9 +2250,9 @@ def passkey_authentication_verify(
         credential.last_used_at = utils.utcnow()
         user_id = user.id
         passkey_id = credential.id
-        db.commit()
+        with establish_authenticated_session(request, user_id, "passkey", passkey_id):
+            db.commit()
     _clear_oauth_session(request)
-    set_authenticated_session(request, user_id, "passkey", passkey_id)
     pending_oidc = request.session.get("oidc_authorize_params")
     if isinstance(pending_oidc, dict):
         pending_oidc["_login_flow_started"] = True
@@ -2419,7 +2407,7 @@ def register_to_app(app: FastAPI):
     app.add_middleware(
         SessionMiddleware,
         secret_key=config.settings.session_secret_key,
-        max_age=86400,
+        max_age=SESSION_MAX_AGE,
         https_only=True,
     )
     app.include_router(router)
